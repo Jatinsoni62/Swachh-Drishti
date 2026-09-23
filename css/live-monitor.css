@@ -7,10 +7,10 @@
 }
 
 .monitor-toolbar {
-  background: #ffffff;
+  background: var(--card-bg);
   padding: 12px 18px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--slate-200);
+  border: 1px solid var(--card-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -20,7 +20,7 @@
 
 .monitor-mode-selector {
   display: flex;
-  background: var(--slate-100);
+  background: var(--bg-surface-subtle);
   padding: 3px;
   border-radius: var(--radius-sm);
   gap: 4px;
@@ -32,13 +32,13 @@
   border-radius: var(--radius-sm);
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--slate-600);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .mode-btn.active {
-  background: #ffffff;
-  color: var(--primary-800);
+  background: var(--bg-surface-elevated);
+  color: var(--primary-600);
   box-shadow: var(--shadow-sm);
 }
 
@@ -228,25 +228,27 @@
   gap: 12px;
 }
 .cctv-sub-card {
-  background: #ffffff;
+  background: var(--card-bg);
   border-radius: var(--radius-md);
-  border: 1px solid var(--slate-200);
+  border: 1px solid var(--card-border);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--card-shadow);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .cctv-sub-card:hover {
-  border-color: var(--teal-600);
+  border-color: var(--accent-cyan);
   transform: translateY(-1px);
 }
 .cctv-sub-card.selected {
-  border: 2px solid var(--teal-600);
+  border: 2px solid var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
 }
 .cctv-sub-header {
   padding: 8px 12px;
-  background: var(--slate-50);
-  border-bottom: 1px solid var(--slate-200);
+  background: var(--bg-surface-elevated);
+  border-bottom: 1px solid var(--border-main);
+  color: var(--text-main);
   display: flex;
   justify-content: space-between;
   font-size: 0.75rem;
@@ -267,12 +269,13 @@
 
 /* Live AI Alert Drawer / Card */
 .ai-alert-card {
-  background: #ffffff;
+  background: var(--card-bg);
+  color: var(--text-main);
   border-radius: var(--radius-md);
   border: 2px solid var(--red-500);
   padding: 16px;
   margin-top: 14px;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.18);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.25);
   animation: shake 0.4s ease-in-out;
 }
 @keyframes shake {
@@ -290,27 +293,28 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--red-600);
+  color: var(--red-500);
   font-weight: 800;
   font-size: 0.95rem;
 }
 .confidence-chip {
-  background: var(--red-50);
-  color: var(--red-600);
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red-500);
   font-weight: 800;
   font-size: 0.75rem;
   padding: 3px 8px;
   border-radius: var(--radius-full);
-  border: 1px solid var(--red-100);
+  border: 1px solid rgba(239, 68, 68, 0.35);
 }
 .alert-metadata {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   font-size: 0.8rem;
-  color: var(--slate-600);
+  color: var(--text-secondary);
   margin-bottom: 14px;
-  background: var(--slate-50);
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-main);
   padding: 8px 12px;
   border-radius: var(--radius-sm);
 }
@@ -324,8 +328,8 @@
 
 /* Simulation Controls */
 .sim-controls-panel {
-  background: #ffffff;
-  border: 1px solid var(--slate-200);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: var(--radius-md);
   padding: 14px;
   margin-top: 12px;
@@ -334,7 +338,7 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   font-weight: 800;
-  color: var(--slate-500);
+  color: var(--text-muted);
   margin-bottom: 8px;
   display: flex;
   align-items: center;
@@ -349,8 +353,9 @@
   padding: 8px 10px;
   font-size: 0.78rem;
   font-weight: 600;
-  border: 1px solid var(--slate-300);
-  background: var(--slate-50);
+  border: 1px solid var(--border-main);
+  background: var(--bg-surface-elevated);
+  color: var(--text-main);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s;
@@ -360,7 +365,7 @@
   justify-content: center;
 }
 .btn-sim:hover {
-  background: var(--teal-50);
-  border-color: var(--teal-500);
-  color: var(--teal-700);
+  background: var(--bg-surface-subtle);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
 }

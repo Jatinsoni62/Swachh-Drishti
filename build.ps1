@@ -14,6 +14,7 @@ $cssFiles = @(
 
 $jsFiles = @(
     "js/data/mock-data.js",
+    "js/logo-data.js",
     "js/store.js",
     "js/cv-engine.js",
     "js/views/landing.js",

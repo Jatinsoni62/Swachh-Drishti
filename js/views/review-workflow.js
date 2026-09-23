@@ -179,8 +179,8 @@ window.openReviewAdjudicationModal = function (reviewId) {
               ` : ''}
 
               <!-- Head Decision Section -->
-              <div style="background: #ffffff; border: 1px solid var(--slate-300); border-radius: var(--radius-md); padding: 16px;">
-                <div style="font-size: 0.85rem; font-weight: 800; color: #78350f; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-main); border-radius: var(--radius-md); padding: 16px;">
+                <div style="font-size: 0.85rem; font-weight: 800; color: #f59e0b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
                   <span>🏛️</span> Municipal Head Statutory Adjudication
                 </div>
                 <p style="font-size: 0.78rem; color: var(--slate-500); margin-bottom: 14px;">

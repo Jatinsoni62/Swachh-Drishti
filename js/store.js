@@ -41,7 +41,37 @@ class SwachhStore {
       }
     };
 
+    // Theme Management (Light / Dark, defaults to dark)
+    this.theme = localStorage.getItem("swachh_theme") || "dark";
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", this.theme);
+    }
+
     this.listeners = [];
+  }
+
+  setTheme(theme) {
+    this.theme = theme;
+    localStorage.setItem("swachh_theme", theme);
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", theme);
+      // Update any theme-specific images
+      document.querySelectorAll(".app-brand-logo, .landing-brand-logo, .login-brand-logo, .seal-logo-img").forEach(img => {
+        img.src = window.getLogoUrl();
+      });
+      // Update theme toggle buttons
+      document.querySelectorAll(".theme-toggle-btn").forEach(btn => {
+        const isDark = theme === "dark";
+        btn.innerHTML = `<span class="theme-toggle-icon">${isDark ? "☀️" : "🌙"}</span><span class="theme-toggle-text">${isDark ? "Light" : "Dark"}</span>`;
+        btn.title = isDark ? "Switch to Light Theme" : "Switch to Dark Theme";
+      });
+    }
+    this.notify("theme_change", { theme });
+  }
+
+  toggleTheme() {
+    const next = this.theme === "dark" ? "light" : "dark";
+    this.setTheme(next);
   }
 
   subscribe(callback) {
@@ -483,3 +513,18 @@ class SwachhStore {
 }
 
 window.store = new SwachhStore();
+
+window.getLogoUrl = function () {
+  const currentTheme = document.documentElement.getAttribute("data-theme") || (window.store && window.store.theme) || "dark";
+  if (currentTheme === "dark") {
+    return window.LOGO_DARK || "assets/logo-dark.png";
+  } else {
+    return window.LOGO_LIGHT || "assets/logo-light.png";
+  }
+};
+
+window.toggleTheme = function () {
+  if (window.store) {
+    window.store.toggleTheme();
+  }
+};

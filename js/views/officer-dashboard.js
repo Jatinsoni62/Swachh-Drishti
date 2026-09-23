@@ -244,7 +244,7 @@ window.renderOfficerDashboardView = function (container) {
       </div>
 
       <!-- False-Positive Training Feedback Badge -->
-      <div style="background: #ffffff; border: 1px solid var(--slate-200); border-radius: var(--radius-md); padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; color: var(--slate-600);">
+      <div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); box-shadow: var(--card-shadow);">
         <div style="display: flex; align-items: center; gap: 10px;">
           <span style="font-size: 1.25rem;">🔁</span>
           <div>

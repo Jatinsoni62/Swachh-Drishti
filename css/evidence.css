@@ -65,8 +65,8 @@
 
 /* AI Checklist Box */
 .ai-checklist {
-  background: var(--slate-50);
-  border: 1px solid var(--slate-200);
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-main);
   border-radius: var(--radius-md);
   padding: 16px;
   margin-top: 14px;
@@ -75,7 +75,7 @@
   font-size: 0.8rem;
   text-transform: uppercase;
   font-weight: 800;
-  color: var(--slate-600);
+  color: var(--text-muted);
   margin-bottom: 10px;
   letter-spacing: 0.5px;
   display: flex;
@@ -93,11 +93,11 @@
   align-items: center;
   justify-content: space-between;
   font-size: 0.82rem;
-  color: var(--slate-700);
+  color: var(--text-secondary);
   padding: 6px 10px;
-  background: #ffffff;
+  background: var(--bg-surface-elevated);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--slate-200);
+  border: 1px solid var(--border-subtle);
 }
 .checklist-item.passed {
   border-left: 3px solid #16a34a;
@@ -113,7 +113,7 @@
 }
 .confidence-val {
   font-weight: 700;
-  color: var(--slate-900);
+  color: var(--text-main);
   font-family: monospace;
 }
 
@@ -130,7 +130,7 @@
   top: 4px;
   bottom: 4px;
   width: 2px;
-  background: var(--slate-200);
+  background: var(--border-main);
 }
 .timeline-entry {
   position: relative;
@@ -148,29 +148,29 @@
   height: 10px;
   border-radius: 50%;
   background: var(--primary-600);
-  border: 2px solid #ffffff;
+  border: 2px solid var(--bg-surface);
   box-shadow: 0 0 0 2px var(--primary-100);
 }
 .timeline-entry.critical::before {
   background: var(--red-500);
-  box-shadow: 0 0 0 2px var(--red-100);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
 }
 .timeline-time {
   font-family: monospace;
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--slate-500);
+  color: var(--text-muted);
 }
 .timeline-desc {
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--slate-800);
+  color: var(--text-main);
 }
 
 /* Officer Decision Box */
 .decision-action-box {
-  background: #ffffff;
-  border: 1px solid var(--slate-200);
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-main);
   border-radius: var(--radius-md);
   padding: 18px;
   margin-top: 18px;

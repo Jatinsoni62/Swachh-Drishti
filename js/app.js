@@ -75,8 +75,8 @@ document.addEventListener("DOMContentLoaded", () => {
         
         <!-- Brand / Logo -->
         <div class="brand-section" onclick="window.store.setView('landing')">
-          <div class="emblem-icon">
-            <span>SD</span>
+          <div class="brand-logo-container">
+            <img src="${window.getLogoUrl()}" alt="SWACHH-DRISHTI Emblem" class="app-brand-logo" />
           </div>
           <div class="brand-titles">
             <h1>
@@ -99,6 +99,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <!-- Header Actions & Profile -->
         <div class="header-actions">
+          <!-- Light / Dark Theme Toggle Button -->
+          <button class="theme-toggle-btn" onclick="window.toggleTheme()" title="${store.theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}">
+            <span class="theme-toggle-icon">${store.theme === 'dark' ? '☀️' : '🌙'}</span>
+            <span class="theme-toggle-text">${store.theme === 'dark' ? 'Light' : 'Dark'}</span>
+          </button>
+
           <div class="live-indicator-badge">
             <span class="pulse-dot"></span>
             <span>21/24 Cameras Active</span>
@@ -116,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             <!-- Head prominent switch button or Role Switcher -->
             ${isHead && !store.isHeadViewingAsOfficer ? `
-              <button class="btn-switch-role" style="background: #fef3c7; border-color: #fde68a; color: #92400e;" onclick="window.confirmSwitchToOfficer()">
+              <button class="btn-switch-role" style="background: var(--bg-surface-subtle); border-color: var(--border-main); color: var(--text-main);" onclick="window.confirmSwitchToOfficer()">
                 <span>⇄</span> Switch to Officer View
               </button>
             ` : ''}
@@ -243,7 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <div class="sidebar-footer">
           <div class="bmc-seal">
-            <span style="font-size: 1.1rem;">🏛️</span>
+            <img src="${window.getLogoUrl()}" class="seal-logo-img" alt="Emblem" style="width: 24px; height: 24px; object-fit: contain;" />
             <div>
               <strong>Bhopal Municipal Corp</strong>
               <div>Swachh Bharat 2026</div>

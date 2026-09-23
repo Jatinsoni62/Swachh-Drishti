@@ -100,18 +100,23 @@ window.renderCitizenChallanView = function (container, challanId = "SD-2026-0012
   const inc = store.incidents.find(i => i.id === ch.incidentId) || store.incidents[0];
 
   container.innerHTML = `
-    <div style="background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%); min-height: calc(100vh - 65px); padding: 30px 16px;">
+    <div style="background: var(--bg-app); min-height: calc(100vh - 65px); padding: 30px 16px; transition: all 0.25s;">
       
       <!-- Public Notice Card -->
-      <div class="citizen-portal-card">
+      <div class="citizen-portal-card" style="background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow); border-radius: var(--radius-lg); overflow: hidden; max-width: 860px; margin: 0 auto;">
         
-        <div class="citizen-portal-header">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <div style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; opacity: 0.85;">
-                Bhopal Municipal Corporation • Civic Cleanliness Enforcement
+        <div class="citizen-portal-header" style="background: linear-gradient(135deg, var(--primary-900) 0%, var(--primary-800) 100%); color: #ffffff; padding: 22px 28px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div style="width: 44px; height: 44px; background: rgba(255,255,255,0.15); border-radius: 10px; padding: 4px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+                <img src="${window.getLogoUrl()}" alt="Emblem" style="width: 100%; height: 100%; object-fit: contain;" />
               </div>
-              <h1 style="font-size: 1.5rem; font-weight: 800; margin-top: 4px;">Municipal Violation Notice</h1>
+              <div>
+                <div style="font-size: 0.78rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; opacity: 0.9;">
+                  Bhopal Municipal Corporation • Civic Cleanliness Enforcement
+                </div>
+                <h1 style="font-size: 1.4rem; font-weight: 800; margin-top: 2px; color: #ffffff;">Municipal Violation Notice</h1>
+              </div>
             </div>
             <span class="status-badge" style="background: rgba(255,255,255,0.2); color: #ffffff; border: 1px solid rgba(255,255,255,0.4); font-size: 0.8rem;">
               Challan ID: ${ch.id}
