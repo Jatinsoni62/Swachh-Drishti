@@ -335,6 +335,40 @@ class SwachhStore {
     return newReview;
   }
 
+  // Settle / Pay Challan via UPI
+  payChallan(challanId, paymentMethod = "PhonePe UPI QR") {
+    const challan = this.challans.find(c => c.id === challanId);
+    if (!challan) return null;
+
+    challan.status = "PAID";
+    challan.paymentStatus = "PAID";
+    challan.paidAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    challan.paidDate = new Date().toISOString().split('T')[0];
+    challan.transactionId = "UPI/TXN/" + Math.floor(10000000 + Math.random() * 90000000);
+    challan.paymentMethod = paymentMethod;
+
+    const inc = this.incidents.find(i => i.id === challan.incidentId);
+    if (inc) {
+      inc.status = "RESOLVED";
+      inc.timeline.push({
+        time: challan.paidAt,
+        text: `Civic fine ₹${challan.fineAmount} paid via ${paymentMethod} (Txn: ${challan.transactionId})`,
+        critical: false
+      });
+    }
+
+    this.addAuditLog(
+      challan.offenderName || "Citizen",
+      "CITIZEN",
+      `Paid fine ₹${challan.fineAmount} for ${challanId} via ${paymentMethod} (Txn: ${challan.transactionId})`,
+      "Payment",
+      challanId
+    );
+
+    this.notify("challan_paid", challan);
+    return challan;
+  }
+
   // Officer forwards review to Municipal Head
   forwardReviewToHead(reviewId, officerNote = "Forwarded for supervisory adjudication") {
     const rev = this.reviews.find(r => r.id === reviewId);

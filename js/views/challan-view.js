@@ -170,33 +170,71 @@ window.renderCitizenChallanView = function (container, challanId = "SD-2026-0012
             <div class="amount-text">₹${ch.fineAmount}</div>
           </div>
 
-          <!-- Current Status Banner -->
-          <div style="margin-bottom: 24px; padding: 12px 16px; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; ${
-            ch.status === 'PAID' ? 'background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;' :
-            (ch.status === 'UNDER_REVIEW' ? 'background: #fae8ff; color: #86198f; border: 1px solid #f5d0fe;' :
-            (ch.status === 'CONFIRMED' ? 'background: #fef3c7; color: #92400e; border: 1px solid #fde68a;' :
-            (ch.status === 'CANCELLED' ? 'background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;' :
-            'background: #fff1f2; color: #be123c; border: 1px solid #fecdd3;')))}">
-            ${ch.status === 'PAID' ? `✓ Paid in Full (${ch.paymentStatus}). Thank you for supporting Swachh Bhopal.` :
-              (ch.status === 'UNDER_REVIEW' ? `⚖️ Under Municipal Review (Ref: ${ch.reviewRef || 'REV-2026-0021'}). Awaiting Municipal Head decision.` :
-              (ch.status === 'CONFIRMED' ? `⚠️ Challan Confirmed by Municipal Head after evidentiary review. Payment is required.` :
-              (ch.status === 'CANCELLED' ? `✓ Challan Cancelled & Fine Waived by Municipal Head.` :
-              `⚠️ Payment Pending: Please pay the civic fine or submit a formal review request if you contest this violation.`)))}
-          </div>
+          <!-- Current Status Banner & Receipt -->
+          ${ch.status === 'PAID' ? `
+            <div style="background: rgba(16, 185, 129, 0.12); border: 2px solid #10b981; border-radius: var(--radius-md); padding: 18px 22px; margin-bottom: 24px; text-align: left;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 1.5rem;">✅</span>
+                  <div>
+                    <strong style="color: #10b981; font-size: 1.1rem;">Challan Settled & Paid in Full</strong>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Official Digital Receipt • Bhopal Municipal Swachhta Bye-Laws</div>
+                  </div>
+                </div>
+                <span class="status-badge status-verified" style="font-size: 0.8rem; padding: 4px 12px;">✓ UPI Confirmed</span>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; padding: 12px; background: var(--bg-surface-elevated); border-radius: var(--radius-sm); border: 1px solid var(--border-main); font-size: 0.82rem;">
+                <div>
+                  <span style="color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">Amount Paid</span>
+                  <div style="font-weight: 800; color: #10b981; font-size: 1.15rem;">₹${ch.fineAmount}.00</div>
+                </div>
+                <div>
+                  <span style="color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">Transaction ID</span>
+                  <div style="font-weight: 700; font-family: monospace; color: var(--text-main);">${ch.transactionId || 'UPI/TXN/84910294'}</div>
+                </div>
+                <div>
+                  <span style="color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">Payment Gateway</span>
+                  <div style="font-weight: 700; color: var(--text-main);">${ch.paymentMethod || 'PhonePe UPI QR'}</div>
+                </div>
+                <div>
+                  <span style="color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">Settlement Time</span>
+                  <div style="font-weight: 700; color: var(--text-main);">${ch.paidDate || ch.date} ${ch.paidAt || ch.time}</div>
+                </div>
+              </div>
+            </div>
+          ` : `
+            <div style="margin-bottom: 24px; padding: 12px 16px; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; ${
+              ch.status === 'UNDER_REVIEW' ? 'background: #fae8ff; color: #86198f; border: 1px solid #f5d0fe;' :
+              (ch.status === 'CONFIRMED' ? 'background: #fef3c7; color: #92400e; border: 1px solid #fde68a;' :
+              (ch.status === 'CANCELLED' ? 'background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;' :
+              'background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35);'))}">
+              ${ch.status === 'UNDER_REVIEW' ? `⚖️ Under Municipal Review (Ref: ${ch.reviewRef || 'REV-2026-0021'}). Awaiting Municipal Head decision.` :
+                (ch.status === 'CONFIRMED' ? `⚠️ Challan Confirmed by Municipal Head after evidentiary review. Payment is required.` :
+                (ch.status === 'CANCELLED' ? `✓ Challan Cancelled & Fine Waived by Municipal Head.` :
+                `⚠️ Payment Pending: Please pay your civic fine of ₹${ch.fineAmount} or submit a formal review request if you contest this violation.`))}
+            </div>
+          `}
 
           <!-- Action Buttons -->
           ${ch.status !== 'PAID' && ch.status !== 'CANCELLED' ? `
             <div style="display: flex; gap: 14px; flex-wrap: wrap;">
-              <button class="btn-primary" style="flex: 1; justify-content: center; padding: 12px; font-size: 0.95rem;" onclick="window.processCitizenPayment('${ch.id}')">
-                💳 Pay Challan Online (₹${ch.fineAmount})
+              <button class="btn-primary" style="flex: 1; justify-content: center; padding: 14px; font-size: 1rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);" onclick="window.openPaymentQrModal('${ch.id}')">
+                <span>📱</span> Pay Your Challan ₹${ch.fineAmount} (UPI QR)
               </button>
               ${ch.status !== 'UNDER_REVIEW' ? `
-                <button class="btn-secondary" style="flex: 1; justify-content: center; padding: 12px; font-size: 0.95rem;" onclick="window.openReviewRequestModal('${ch.id}')">
+                <button class="btn-secondary" style="flex: 1; justify-content: center; padding: 14px; font-size: 1rem;" onclick="window.openReviewRequestModal('${ch.id}')">
                   ⚖️ Request Formal Review
                 </button>
               ` : ''}
             </div>
-          ` : ''}
+          ` : `
+            <div style="display: flex; gap: 14px; justify-content: flex-end;">
+              <button class="btn-secondary" style="padding: 10px 18px;" onclick="window.openPaymentQrModal('${ch.id}', true)">
+                <span>🧾</span> View Payment QR / Details
+              </button>
+            </div>
+          `}
 
         </div>
 
@@ -250,11 +288,120 @@ window.enterCitizenView = function (challanId) {
   window.store.setView("citizen-challan", { challanId });
 };
 
-window.processCitizenPayment = function (challanId) {
-  window.store.payChallan(challanId);
-  if (window.showToast) window.showToast("💳 Payment receipt generated! Challan settled.");
-  window.renderCitizenChallanView(document.getElementById("app-viewport"), challanId);
+// UPI Payment Modal Popup with QR Code and Demo Payment Button
+window.openPaymentQrModal = function (challanId, viewOnly = false) {
+  const store = window.store;
+  const ch = store.challans.find(c => c.id === challanId) || store.challans[0];
+
+  const existing = document.getElementById("payment-qr-modal");
+  if (existing) existing.remove();
+
+  const qrSrc = window.PAYMENT_QR || "assets/payment-qr.jpg";
+
+  const modalHtml = `
+    <div class="modal-overlay" id="payment-qr-modal">
+      <div class="modal-card payment-modal-card">
+        
+        <div class="modal-header">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center;">
+              <span style="font-size: 1.2rem;">💳</span>
+            </div>
+            <div style="text-align: left;">
+              <h2 style="font-size: 1.15rem; margin: 0; color: var(--text-main);">Pay Civic Challan via UPI</h2>
+              <div style="font-size: 0.72rem; color: var(--text-muted);">Bhopal Municipal Corporation • Swachh Bharat</div>
+            </div>
+          </div>
+          <button class="modal-close-btn" onclick="document.getElementById('payment-qr-modal').remove()">×</button>
+        </div>
+
+        <div class="modal-body" style="padding: 24px 20px;">
+          
+          <!-- Amount Banner -->
+          <div style="background: var(--bg-surface-subtle); border: 1px solid var(--border-main); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+            <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px;">
+              Total Fine Amount Due
+            </div>
+            <div style="font-size: 2.2rem; font-weight: 900; color: #10b981; margin: 4px 0;">
+              ₹${ch.fineAmount}.00
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-secondary);">
+              Notice ID: <strong>${ch.id}</strong> • Violation: <strong>${ch.violation}</strong>
+            </div>
+          </div>
+
+          <!-- Official PhonePe QR Box -->
+          <div class="qr-frame-box">
+            <img src="${qrSrc}" alt="PhonePe UPI QR Code" class="payment-qr-image" />
+          </div>
+
+          <!-- Scan instructions -->
+          <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-top: 4px;">
+            Scan QR Code with any UPI App
+          </div>
+          
+          <div class="upi-apps-row">
+            <span class="upi-chip">📱 PhonePe</span>
+            <span class="upi-chip">🔵 Google Pay</span>
+            <span class="upi-chip">🔷 Paytm</span>
+            <span class="upi-chip">🇮🇳 BHIM UPI</span>
+          </div>
+
+          <div class="upi-merchant-badge">
+            Official Beneficiary: <strong>Bhopal Municipal Cleanliness Enforcement Fund</strong>
+          </div>
+
+          <!-- Demo Payment Action Button -->
+          ${ch.status !== 'PAID' && !viewOnly ? `
+            <div style="margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-main);">
+              <button id="btn-demo-pay" class="btn-primary" style="width: 100%; justify-content: center; padding: 14px; font-size: 1rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);" onclick="window.simulateDemoPayment('${ch.id}')">
+                ⚡ Simulate Instant Payment (Demo ₹${ch.fineAmount})
+              </button>
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 8px;">
+                Demo Mode: Click to simulate instant UPI confirmation & settle this challan.
+              </div>
+            </div>
+          ` : `
+            <div style="margin-top: 20px; padding: 12px; background: rgba(16, 185, 129, 0.12); border-radius: var(--radius-sm); border: 1px solid #10b981; color: #10b981; font-weight: 700; font-size: 0.88rem;">
+              ✓ Challan Already Settled (${ch.transactionId || 'UPI Confirmed'})
+            </div>
+          `}
+
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend", modalHtml);
 };
+
+window.simulateDemoPayment = function (challanId) {
+  const btn = document.getElementById("btn-demo-pay");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>⏳ Verifying UPI Transaction with Bank Gateway...</span>`;
+  }
+
+  setTimeout(() => {
+    const paidChallan = window.store.payChallan(challanId, "PhonePe UPI QR");
+    const modal = document.getElementById("payment-qr-modal");
+    if (modal) modal.remove();
+
+    if (window.showToast) {
+      window.showToast(`🎉 Payment of ₹${paidChallan.fineAmount} received via PhonePe UPI! Challan ${challanId} settled.`);
+    }
+
+    const viewport = document.getElementById("app-viewport");
+    if (viewport) {
+      window.renderCitizenChallanView(viewport, challanId);
+    }
+  }, 700);
+};
+
+window.processCitizenPayment = function (challanId) {
+  window.openPaymentQrModal(challanId);
+};
+
 
 // Citizen Review Request Modal
 window.openReviewRequestModal = function (challanId) {
