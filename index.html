@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SWACHH-DRISHTI — AI-Powered Civic Cleanliness Monitoring & Evidence-Assisted Enforcement</title>
+  <meta name="description" content="AI-powered public cleanliness enforcement platform for Bhopal Municipal Corporation. Automated spitting detection, evidence packages, human verification, and zero auto-fining.">
+
+  <!-- Typography: Inter font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Application Stylesheets -->
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/live-monitor.css">
+  <link rel="stylesheet" href="css/evidence.css">
+  <link rel="stylesheet" href="css/hotspot.css">
+</head>
+<body>
+
+  <!-- Root Application Container -->
+  <div id="app">
+    <!-- Persistent Head Supervisory Banner (Visible when Head switches to Officer view) -->
+    <div id="supervisory-banner-root"></div>
+
+    <!-- Official Government Header -->
+    <div id="gov-header-root"></div>
+
+    <!-- Main Application Shell -->
+    <div class="app-shell">
+      <!-- Operational Navigation Sidebar -->
+      <div id="app-sidebar-root"></div>
+
+      <!-- Active Viewport Content Area -->
+      <main id="app-viewport" class="app-viewport" role="main"></main>
+    </div>
+
+    <!-- Floating Toast Notification System -->
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+
+  <!-- Application Logic & Module Scripts -->
+  <script src="js/data/mock-data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/cv-engine.js"></script>
+  <script src="js/views/landing.js"></script>
+  <script src="js/views/login.js"></script>
+  <script src="js/views/officer-dashboard.js"></script>
+  <script src="js/views/head-dashboard.js"></script>
+  <script src="js/views/live-monitor.js"></script>
+  <script src="js/views/evidence-modal.js"></script>
+  <script src="js/views/challan-view.js"></script>
+  <script src="js/views/review-workflow.js"></script>
+  <script src="js/views/hotspot-view.js"></script>
+  <script src="js/views/audit-log.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
