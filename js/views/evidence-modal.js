@@ -109,6 +109,13 @@ window.openEvidenceModal = function (incidentId) {
                     </div>
                     <span class="confidence-val">${inc.aiConfidence}% Conf</span>
                   </li>
+                  <li class="checklist-item passed">
+                    <div class="item-left">
+                      <span class="check-icon">✓</span>
+                      <span>Receptacle Spatial Check (Dustbin / Bucket Proximity)</span>
+                    </div>
+                    <span class="confidence-val" style="color: var(--teal-700); font-weight: 700;">Zero Intersect (Road Confirmed)</span>
+                  </li>
                 </ul>
               </div>
 
@@ -167,6 +174,7 @@ window.openEvidenceModal = function (incidentId) {
                       Select Rejection Reason (Logs to AI Feedback Loop):
                     </div>
                     <select id="rejection-reason-select" class="filter-select" style="width: 100%; margin-bottom: 8px;">
+                      <option value="Spit in dustbin/bucket">Disposed in dustbin / bucket / spittoon (Compliant - Lawful)</option>
                       <option value="Eating/drinking">Eating / Drinking liquid</option>
                       <option value="Coughing/sneezing">Coughing / Sneezing into handkerchief</option>
                       <option value="Touching face">Touching face / Wiping mouth</option>

@@ -97,6 +97,19 @@ class SwachhCVEngine {
       }
     ];
 
+    // Civic waste receptacles (dustbins, buckets, spittoons)
+    this.receptacles = [
+      {
+        id: "BIN-01",
+        label: "Municipal Dustbin (Swachh Bhopal)",
+        type: "dustbin",
+        x: 500,
+        y: 195,
+        width: 58,
+        height: 72
+      }
+    ];
+
     this.onDetectionListeners = [];
   }
 
@@ -644,14 +657,19 @@ class SwachhCVEngine {
     // Draw CCTV Street Background
     this.renderCctvBackground(w, h, frame);
 
+    // Draw Civic Receptacles (Municipal Dustbins / Spittoons)
+    this.renderReceptacles();
+
     this.temporalFrameCount = (this.temporalFrameCount + 1) % this.temporalBufferSize;
 
-    // Update and draw all 3 simulated pedestrians simultaneously
+    // Update and draw all simulated pedestrians
     this.simulationActors.forEach(actor => {
-      // Move actor
-      actor.x += actor.vx;
-      if (actor.x > w - actor.width - 20 || actor.x < 40) {
-        actor.vx *= -1;
+      // Move actor (pause if currently disposing into dustbin)
+      if (actor.behaviorType !== "spitting_dustbin") {
+        actor.x += actor.vx;
+        if (actor.x > w - actor.width - 20 || actor.x < 40) {
+          actor.vx *= -1;
+        }
       }
 
       // Record movement trail
@@ -661,6 +679,7 @@ class SwachhCVEngine {
       // State progression for each individual actor
       let isSpitting = false;
       let isDrinking = false;
+      let isCompliantDustbin = false;
 
       if (actor.behaviorType === "spitting") {
         if (frame % 280 < 90) {
@@ -681,6 +700,14 @@ class SwachhCVEngine {
           actor.spitTriggered = false;
           actor.spitTrajectory = [];
         }
+      } else if (actor.behaviorType === "spitting_dustbin") {
+        actor.state = "🗑️ DISPOSING IN DUSTBIN (COMPLIANT)";
+        isCompliantDustbin = true;
+        actor.handY = actor.mouthY + 10;
+        if (!actor.spitTriggered) {
+          actor.spitTriggered = true;
+          this.triggerSimDustbinSpitTrajectory(actor);
+        }
       } else if (actor.behaviorType === "drinking") {
         actor.state = "FILTERED: DRINKING WATER";
         isDrinking = true;
@@ -695,22 +722,28 @@ class SwachhCVEngine {
 
       // Trajectory particles
       if (actor.spitTrajectory.length > 0) {
-        this.ctx.fillStyle = "#ef4444";
         actor.spitTrajectory.forEach(pt => {
-          pt.x += pt.vx;
-          pt.y += pt.vy;
-          pt.vy += 0.2;
+          if (pt.targetX !== undefined) {
+            pt.x += (pt.targetX - pt.x) * 0.12;
+            pt.y += (pt.targetY - pt.y) * 0.12;
+            this.ctx.fillStyle = pt.color || "#10b981";
+          } else {
+            pt.x += pt.vx;
+            pt.y += pt.vy;
+            pt.vy += 0.2;
+            this.ctx.fillStyle = "#ef4444";
+          }
           this.ctx.beginPath();
-          this.ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+          this.ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
           this.ctx.fill();
         });
       }
 
       // Bounding box color based on individual behavior
-      const boxColor = isSpitting ? "#ef4444" : (isDrinking ? "#f59e0b" : "#10b981");
+      const boxColor = isSpitting ? "#ef4444" : (isCompliantDustbin ? "#10b981" : (isDrinking ? "#f59e0b" : "#38bdf8"));
 
       this.ctx.strokeStyle = boxColor;
-      this.ctx.lineWidth = isSpitting ? 3 : 2;
+      this.ctx.lineWidth = (isSpitting || isCompliantDustbin) ? 3 : 2;
       this.ctx.strokeRect(actor.x, actor.y, actor.width, actor.height);
       this.drawCornerAccents(actor.x, actor.y, actor.width, actor.height, boxColor);
 
@@ -720,6 +753,17 @@ class SwachhCVEngine {
       this.ctx.fillStyle = "#ffffff";
       this.ctx.font = "bold 9px monospace";
       this.ctx.fillText(`${actor.id} (v:${Math.abs(actor.vx).toFixed(1)}) | ${actor.state}`, actor.x + 4, actor.y - 8);
+
+      // Compliant Receptacle Intersect Banner
+      if (isCompliantDustbin) {
+        this.ctx.fillStyle = "rgba(6, 78, 59, 0.9)";
+        this.ctx.fillRect(actor.x - 10, actor.y + actor.height + 6, actor.width + 20, 20);
+        this.ctx.strokeStyle = "#34d399";
+        this.ctx.strokeRect(actor.x - 10, actor.y + actor.height + 6, actor.width + 20, 20);
+        this.ctx.fillStyle = "#34d399";
+        this.ctx.font = "bold 9px monospace";
+        this.ctx.fillText(`✓ RECEPTACLE INTERSECT: NO FINE`, actor.x - 4, actor.y + actor.height + 20);
+      }
     });
 
     // Top HUD for Simulation Mode
@@ -802,6 +846,86 @@ class SwachhCVEngine {
     this.drawKeypoint(cx + 25 * scale, actor.handY, "#34d399", "Hand");
   }
 
+  renderReceptacles() {
+    if (!this.receptacles || !this.ctx) return;
+    this.receptacles.forEach(bin => {
+      const bx = bin.x;
+      const by = bin.y;
+      const bw = bin.width;
+      const bh = bin.height;
+
+      // Dustbin floor shadow
+      this.ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+      this.ctx.beginPath();
+      this.ctx.ellipse(bx + bw / 2, by + bh + 4, bw * 0.55, 7, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Dustbin canister gradient (Civic Green)
+      const grad = this.ctx.createLinearGradient(bx, by, bx + bw, by);
+      grad.addColorStop(0, "#047857");
+      grad.addColorStop(0.45, "#10b981");
+      grad.addColorStop(1, "#064e3b");
+      this.ctx.fillStyle = grad;
+
+      // Container body
+      this.ctx.beginPath();
+      this.ctx.moveTo(bx + 4, by + 14);
+      this.ctx.lineTo(bx + 8, by + bh);
+      this.ctx.quadraticCurveTo(bx + bw / 2, by + bh + 6, bx + bw - 8, by + bh);
+      this.ctx.lineTo(bx + bw - 4, by + 14);
+      this.ctx.closePath();
+      this.ctx.fill();
+
+      // Rib lines on canister
+      this.ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+      this.ctx.lineWidth = 1.5;
+      for (let rx = bx + 15; rx < bx + bw - 8; rx += 9) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(rx, by + 20);
+        this.ctx.lineTo(rx, by + bh - 6);
+        this.ctx.stroke();
+      }
+
+      // Lid / rim
+      this.ctx.fillStyle = "#064e3b";
+      this.ctx.fillRect(bx - 3, by + 8, bw + 6, 8);
+      this.ctx.fillStyle = "#34d399";
+      this.ctx.beginPath();
+      this.ctx.ellipse(bx + bw / 2, by + 8, bw / 2 + 2, 4, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Lid handle
+      this.ctx.strokeStyle = "#ffffff";
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.arc(bx + bw / 2, by + 6, 6, Math.PI, 0);
+      this.ctx.stroke();
+
+      // Civic disposal icon
+      this.ctx.fillStyle = "#ffffff";
+      this.ctx.font = "14px sans-serif";
+      this.ctx.textAlign = "center";
+      this.ctx.fillText("♻️", bx + bw / 2, by + 42);
+      this.ctx.font = "bold 8px monospace";
+      this.ctx.fillText("WASTE", bx + bw / 2, by + 56);
+      this.ctx.textAlign = "left";
+
+      // AI Bounding Box for Receptacle Zone
+      this.ctx.strokeStyle = "#10b981";
+      this.ctx.lineWidth = 1.5;
+      this.ctx.setLineDash([4, 3]);
+      this.ctx.strokeRect(bx - 6, by - 4, bw + 12, bh + 14);
+      this.ctx.setLineDash([]);
+
+      // Label Tag
+      this.ctx.fillStyle = "rgba(6, 78, 59, 0.95)";
+      this.ctx.fillRect(bx - 6, by - 22, bw + 34, 18);
+      this.ctx.fillStyle = "#34d399";
+      this.ctx.font = "bold 9px monospace";
+      this.ctx.fillText(`[BIN-01] DUSTBIN`, bx - 2, by - 9);
+    });
+  }
+
   triggerSimSpitTrajectory(actor) {
     const cx = actor.x + actor.width / 2;
     actor.spitTrajectory = [];
@@ -822,9 +946,37 @@ class SwachhCVEngine {
     }, 400);
   }
 
+  triggerSimDustbinSpitTrajectory(actor) {
+    const cx = actor.x + actor.width / 2;
+    const bin = (this.receptacles && this.receptacles[0]) ? this.receptacles[0] : { x: 500, y: 195, width: 58 };
+    actor.spitTrajectory = [];
+    for (let i = 0; i < 9; i++) {
+      actor.spitTrajectory.push({
+        x: cx + 10,
+        y: actor.y + 45,
+        targetX: bin.x + bin.width * 0.4 + (Math.random() * 10 - 5),
+        targetY: bin.y + 10 + Math.random() * 8,
+        color: "#10b981"
+      });
+    }
+
+    if (window.showToast) {
+      window.showToast("🗑️ Lawful Disposal: Pedestrian spat into municipal dustbin. Receptacle filter verified — NO violation flagged.");
+    }
+  }
+
   simulateSpitting() {
     this.simulationActors[0].behaviorType = "spitting";
     this.simulationActors[0].spitTriggered = false;
+    this.simulationActors[0].spitTrajectory = [];
+  }
+
+  simulateSpitInDustbin() {
+    const actor = this.simulationActors[0];
+    actor.x = 425;
+    actor.behaviorType = "spitting_dustbin";
+    actor.spitTriggered = false;
+    actor.spitTrajectory = [];
   }
 
   simulateDrinking() {
@@ -832,7 +984,11 @@ class SwachhCVEngine {
   }
 
   simulateNormalWalk() {
-    this.simulationActors.forEach(a => a.behaviorType = "normal");
+    this.simulationActors.forEach(a => {
+      a.behaviorType = "normal";
+      a.spitTrajectory = [];
+      a.spitTriggered = false;
+    });
   }
 
   drawKeypoint(x, y, color, label) {

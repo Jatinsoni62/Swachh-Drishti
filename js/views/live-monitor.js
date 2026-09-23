@@ -160,7 +160,10 @@ window.renderLiveMonitorView = function (container) {
                 </p>
                 <div class="sim-btn-grid">
                   <button class="btn-sim" style="border-color: var(--red-500); color: var(--red-600);" onclick="window.triggerSimSpit()">
-                    <span>🚨</span> Trigger Spitting (87%)
+                    <span>🚨</span> Spitting on Road (Violation)
+                  </button>
+                  <button class="btn-sim" style="border-color: #10b981; color: #047857;" onclick="window.triggerSimDustbinSpit()">
+                    <span>🗑️</span> Spit in Dustbin (Compliant - No Fine)
                   </button>
                   <button class="btn-sim" onclick="window.triggerSimDrinking()">
                     <span>🥤</span> Test Drinking Water
@@ -252,7 +255,11 @@ window.selectCameraFeed = function (camId) {
 
 window.triggerSimSpit = function () {
   window.cvEngine.simulateSpitting();
-  if (window.showToast) window.showToast("🚨 Spitting gesture detected by Temporal Analysis (87% confidence)");
+  if (window.showToast) window.showToast("🚨 Spitting gesture on pavement detected (87% confidence) - Violation Pending");
+};
+
+window.triggerSimDustbinSpit = function () {
+  window.cvEngine.simulateSpitInDustbin();
 };
 
 window.triggerSimDrinking = function () {
