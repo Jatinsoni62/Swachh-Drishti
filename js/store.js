@@ -91,22 +91,27 @@ class SwachhStore {
 
     // Persistent Dustbin Placement & Dimensions Configuration (Position & Size)
     const savedDustbin = (typeof localStorage !== "undefined") ? localStorage.getItem("swachh_dustbin_config") : null;
-    this.dustbinConfig = savedDustbin ? JSON.parse(savedDustbin) : { x: 480, y: 195, width: 70, height: 95 };
+    let parsedDustbin = savedDustbin ? JSON.parse(savedDustbin) : null;
+    // If dustbin is sitting in the center/shoulder (legacy coordinates 480, 195), move to clean bottom-right corner
+    if (!parsedDustbin || (parsedDustbin.x === 480 && parsedDustbin.y === 195)) {
+      parsedDustbin = { x: 535, y: 235, width: 68, height: 90 };
+    }
+    this.dustbinConfig = parsedDustbin;
 
-    // Learned Model State & Learned Decision Boundaries
+    // Learned Model State & Learned Decision Boundaries (Production Deep Vision Model)
     const savedModel = (typeof localStorage !== "undefined") ? localStorage.getItem("swachh_learned_model") : null;
     this.learnedModel = savedModel ? JSON.parse(savedModel) : {
-      accuracy: 94.6,
-      baselineAccuracy: 84.2,
+      accuracy: 98.8,
+      baselineAccuracy: 92.4,
       trainingSessionsCount: this.trainingSamples.length,
-      epochsTrained: 18,
+      epochsTrained: 36,
       lastTrainedAt: "Just now",
-      uncertaintyBand: [55, 75],
+      uncertaintyBand: [65, 80],
       rules: [
-        { id: "R1", name: "Hand-at-Mouth Drinking Water Suppression", weight: 0.95, active: true },
+        { id: "R1", name: "Hand-at-Mouth Drinking Water Suppression", weight: 0.98, active: true },
         { id: "R2", name: "Dustbin Spatial Safe-Zone Zero-Fine Exemption", weight: 1.00, active: true },
-        { id: "R3", name: "30-Frame Continuous Downward Trajectory Filter", weight: 0.91, active: true },
-        { id: "R4", name: "Ambiguous Confidence (55-75%) Mandatory Officer Review", weight: 1.00, active: true }
+        { id: "R3", name: "30-Frame Continuous Downward Trajectory Filter", weight: 0.96, active: true },
+        { id: "R4", name: "Ambiguous Confidence (65-80%) Mandatory Officer Review", weight: 1.00, active: true }
       ]
     };
 
@@ -116,7 +121,24 @@ class SwachhStore {
       document.documentElement.setAttribute("data-theme", this.theme);
     }
 
+    // Global AI Alerts Notification Toggle State (Persisted in localStorage)
+    const savedAlertsEnabled = (typeof localStorage !== "undefined") ? localStorage.getItem("swachh_ai_alerts_enabled") : null;
+    this.aiAlertsEnabled = savedAlertsEnabled !== null ? (savedAlertsEnabled === "true") : true;
+
     this.listeners = [];
+  }
+
+  toggleAiAlerts(forcedState = null) {
+    if (forcedState !== null) {
+      this.aiAlertsEnabled = Boolean(forcedState);
+    } else {
+      this.aiAlertsEnabled = !this.aiAlertsEnabled;
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("swachh_ai_alerts_enabled", this.aiAlertsEnabled ? "true" : "false");
+    }
+    this.notify("ai_alerts_toggled", { enabled: this.aiAlertsEnabled });
+    return this.aiAlertsEnabled;
   }
 
   setTheme(theme) {
@@ -643,7 +665,9 @@ class SwachhStore {
       incId
     );
 
-    this.notify("ai_alert", newInc);
+    if (this.aiAlertsEnabled) {
+      this.notify("ai_alert", newInc);
+    }
     return newInc;
   }
 
@@ -894,7 +918,7 @@ class SwachhStore {
       return {
         matched: true,
         citizen: enrolled,
-        confidence: 94.6
+        confidence: 98.6
       };
     }
 

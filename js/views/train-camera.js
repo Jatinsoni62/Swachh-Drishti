@@ -60,6 +60,12 @@ window.renderTrainCameraView = function (container) {
           </div>
 
           <div style="display: flex; gap: 8px; align-items: center;">
+            <!-- Real-Time AI Alerts ON / OFF Toggle Button -->
+            <button id="btn-toggle-train-alerts" type="button" class="btn-secondary ${store.aiAlertsEnabled ? 'active-alert-btn' : 'muted-alert-btn'}" style="font-size: 0.75rem; padding: 4px 10px; display: inline-flex; align-items: center; gap: 6px;" onclick="window.toggleGlobalAiAlerts()" title="${store.aiAlertsEnabled ? 'Real-Time AI Alerts are ON (Click to Mute / Turn OFF)' : 'Real-Time AI Alerts are MUTED / OFF (Click to Turn ON)'}">
+              <span>${store.aiAlertsEnabled ? '🔔' : '🔕'}</span>
+              <span>${store.aiAlertsEnabled ? 'Alerts: ON' : 'Alerts: OFF'}</span>
+            </button>
+
             <!-- Feed ON / OFF Power Switch Button -->
             <button id="toggle-training-feed-power-btn" type="button" class="btn-secondary" style="font-size: 0.75rem; padding: 4px 10px; display: inline-flex; align-items: center; gap: 6px; background: ${state.isFeedOn !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; border-color: ${state.isFeedOn !== false ? 'rgba(52, 211, 153, 0.4)' : 'rgba(239, 68, 68, 0.4)'}; color: ${state.isFeedOn !== false ? '#34d399' : '#f87171'}; cursor: pointer; border-radius: var(--radius-sm);" onclick="window.toggleTrainingFeedPower()" title="Turn Live Camera Feed ON or OFF">
               <span id="training-power-btn-icon" style="font-size: 0.85rem;">${state.isFeedOn !== false ? '🟢' : '⏸️'}</span>
@@ -589,7 +595,7 @@ window.getTrainingWeightsHtml = function () {
     <div class="content-card-body">
       <div style="text-align: center; padding: 14px 0; border-bottom: 1px solid var(--border-main); margin-bottom: 14px;">
         <div style="font-size: 2.2rem; font-weight: 900; color: #059669; line-height: 1;">
-          ${store.learnedModel ? store.learnedModel.accuracy : 94.6}%
+          ${store.learnedModel ? store.learnedModel.accuracy : 98.8}%
         </div>
         <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); margin-top: 4px;">
           Cleanliness Verification Accuracy

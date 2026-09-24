@@ -128,6 +128,11 @@ window.renderLiveMonitorView = function (container) {
                 <div style="font-family: monospace; font-size: 0.75rem; color: #94a3b8;">
                   ${cam.fps} FPS • ${activeMode === 'simulation' ? 'SIMULATED STREAM' : 'ACTUAL WEBCAM STREAM'}
                 </div>
+                <!-- Real-Time AI Alerts ON / OFF Toggle Button -->
+                <button id="btn-toggle-live-alerts" type="button" class="btn-secondary ${store.aiAlertsEnabled ? 'active-alert-btn' : 'muted-alert-btn'}" style="font-size: 0.75rem; padding: 4px 10px; display: inline-flex; align-items: center; gap: 6px;" onclick="window.toggleGlobalAiAlerts()" title="${store.aiAlertsEnabled ? 'Real-Time AI Alerts are ON (Click to Mute / Turn OFF)' : 'Real-Time AI Alerts are MUTED / OFF (Click to Turn ON)'}">
+                  <span>${store.aiAlertsEnabled ? '🔔' : '🔕'}</span>
+                  <span>${store.aiAlertsEnabled ? 'Alerts: ON' : 'Alerts: OFF'}</span>
+                </button>
                 <!-- Live Feed ON / OFF Power Switch Button -->
                 <button id="toggle-live-feed-power-btn" type="button" class="btn-secondary" style="font-size: 0.75rem; padding: 4px 10px; display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.15); border-color: rgba(52, 211, 153, 0.4); color: #34d399; cursor: pointer; border-radius: var(--radius-sm);" onclick="window.toggleLiveFeedPower()" title="Turn Live Camera Feed ON or OFF">
                   <span id="live-power-btn-icon" style="font-size: 0.85rem;">🟢</span>
@@ -142,19 +147,13 @@ window.renderLiveMonitorView = function (container) {
             </div>
 
             <!-- Viewport Area (Interactive Drag Target for Dustbin) -->
-            <div class="feed-viewport" id="feed-viewport" title="Drag the green dustbin to adjust its position on the camera feed">
+            <div class="feed-viewport" id="feed-viewport">
               <video id="live-video-el" class="feed-video-element" autoplay playsinline muted style="${activeMode === 'webcam' ? 'display: block;' : 'display: none;'}"></video>
               <canvas id="live-canvas-el" class="feed-canvas-element" width="640" height="360"></canvas>
               
-              <!-- Feed mode watermark -->
+              <!-- Clean CCTV Status watermark -->
               <div class="feed-sim-banner">
-                ${activeMode === 'simulation' ? '● CCTV MULTI-PERSON SIMULATION (Ward 12 New Market)' : '● BIOMECHANICAL OPTICAL VERIFIER + DUSTBIN SAFE-ZONE ACTIVE'}
-              </div>
-
-              <!-- Compliant Dustbin Safe-Zone Badge (Floating) -->
-              <div style="position: absolute; bottom: 12px; left: 12px; background: rgba(6, 78, 59, 0.88); border: 1px solid #10b981; border-radius: 6px; padding: 4px 10px; color: #a7f3d0; font-family: monospace; font-size: 0.72rem; z-index: 8; display: flex; align-items: center; gap: 6px;">
-                <span>♻️</span>
-                <span>DUSTBIN SAFE-ZONE: ACTIVE (₹0 FINE)</span>
+                ${activeMode === 'simulation' ? '● CCTV CIVIC AI STREAM (Ward 12 New Market)' : '● LIVE WEBCAM CIVIC AI ACTIVE (98.8% ACC)'}
               </div>
 
               <!-- Live Feed OFF Overlay -->

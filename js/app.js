@@ -3,8 +3,27 @@
 document.addEventListener("DOMContentLoaded", () => {
   const store = window.store;
 
-  // Global Toast function
-  window.showToast = function (message) {
+  // Global Toast Notification System with Max Cap & Dismiss Controls
+  window.clearAllToasts = function () {
+    const container = document.getElementById("toast-container");
+    if (container) {
+      container.innerHTML = "";
+    }
+  };
+
+  window.showToast = function (message, options = {}) {
+    // If real-time AI alerts are disabled and this is an alert toast, do not show
+    const isAiAlert = typeof message === "string" && (
+      message.includes("🚨") ||
+      message.includes("AI Alert") ||
+      message.includes("SPITTING DETECTED") ||
+      message.includes("Suspected Spitting")
+    );
+
+    if (isAiAlert && store && !store.aiAlertsEnabled && !options.isSystemNotice) {
+      return;
+    }
+
     let container = document.getElementById("toast-container");
     if (!container) {
       container = document.createElement("div");
@@ -13,20 +32,83 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.appendChild(container);
     }
 
+    // Limit active toasts to max 2 to prevent screen clutter
+    while (container.children.length >= 2) {
+      container.removeChild(container.firstChild);
+    }
+
     const toast = document.createElement("div");
-    toast.className = "toast";
+    toast.className = `toast ${options.isSystemNotice ? 'toast-system' : ''}`;
+    
+    let icon = "🔔";
+    if (isAiAlert) icon = "🚨";
+    else if (message.includes("🔕")) icon = "🔕";
+    else if (message.includes("🗑️")) icon = "🗑️";
+    else if (message.includes("🟢")) icon = "🟢";
+    else if (message.includes("⏸️")) icon = "⏸️";
+    else if (message.includes("🎥")) icon = "🎥";
+    else if (message.includes("🔴")) icon = "🔴";
+    else if (message.includes("⏹️")) icon = "⏹️";
+
+    const cleanMsg = typeof message === "string" ? message.replace(/^[🚨🔔🔕🗑️🟢⏸️🎥🔴⏹️]\s*/, "") : message;
+
     toast.innerHTML = `
-      <span>🔔</span>
-      <span>${message}</span>
+      <span class="toast-icon">${icon}</span>
+      <span class="toast-msg">${cleanMsg}</span>
+      <button type="button" class="toast-close-btn" title="Dismiss notification" onclick="this.parentElement.remove()">✕</button>
     `;
     container.appendChild(toast);
 
     setTimeout(() => {
       toast.style.opacity = "0";
       toast.style.transform = "translateX(100%)";
-      toast.style.transition = "all 0.3s ease";
-      setTimeout(() => toast.remove(), 300);
-    }, 4000);
+      toast.style.transition = "all 0.25s ease";
+      setTimeout(() => {
+        if (toast.parentElement) toast.remove();
+      }, 250);
+    }, 3800);
+  };
+
+  // Synchronize Alert Toggle State across all UI components
+  window.updateAlertToggleButtons = function (enabled) {
+    const headerBtn = document.getElementById("btn-toggle-global-alerts");
+    if (headerBtn) {
+      headerBtn.className = `alerts-toggle-btn ${enabled ? 'active' : 'muted'}`;
+      headerBtn.innerHTML = `
+        <span class="alerts-toggle-icon">${enabled ? '🔔' : '🔕'}</span>
+        <span class="alerts-toggle-text">${enabled ? 'Alerts: ON' : 'Alerts: OFF'}</span>
+      `;
+      headerBtn.title = enabled ? "Real-Time AI Alerts are ON (Click to Mute / Turn OFF)" : "Real-Time AI Alerts are MUTED / OFF (Click to Turn ON)";
+    }
+
+    const liveBtn = document.getElementById("btn-toggle-live-alerts");
+    if (liveBtn) {
+      liveBtn.className = `btn-secondary ${enabled ? 'active-alert-btn' : 'muted-alert-btn'}`;
+      liveBtn.innerHTML = `<span>${enabled ? '🔔' : '🔕'}</span><span>${enabled ? 'Alerts: ON' : 'Alerts: OFF'}</span>`;
+      liveBtn.title = enabled ? "Real-Time AI Alerts are ON (Click to Mute)" : "Real-Time AI Alerts are MUTED (Click to Turn ON)";
+    }
+
+    const trainBtn = document.getElementById("btn-toggle-train-alerts");
+    if (trainBtn) {
+      trainBtn.className = `btn-secondary ${enabled ? 'active-alert-btn' : 'muted-alert-btn'}`;
+      trainBtn.innerHTML = `<span>${enabled ? '🔔' : '🔕'}</span><span>${enabled ? 'Alerts: ON' : 'Alerts: OFF'}</span>`;
+      trainBtn.title = enabled ? "Real-Time AI Alerts are ON (Click to Mute)" : "Real-Time AI Alerts are MUTED (Click to Turn ON)";
+    }
+  };
+
+  // Global Toggle Action
+  window.toggleGlobalAiAlerts = function () {
+    const newState = store.toggleAiAlerts();
+    if (!newState) {
+      window.clearAllToasts();
+    }
+    window.updateAlertToggleButtons(newState);
+    if (window.showToast) {
+      window.showToast(
+        newState ? "🔔 Real-Time AI Alert Popups ENABLED" : "🔕 Real-Time AI Alert Popups MUTED / OFF",
+        { isSystemNotice: true }
+      );
+    }
   };
 
   // Global Portals & Navigation Launchers
@@ -119,6 +201,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <!-- Header Actions & Profile -->
         <div class="header-actions">
+          <!-- Real-Time AI Alerts ON / OFF Toggle Button -->
+          <button 
+            id="btn-toggle-global-alerts" 
+            class="alerts-toggle-btn ${store.aiAlertsEnabled ? 'active' : 'muted'}" 
+            onclick="window.toggleGlobalAiAlerts()" 
+            title="${store.aiAlertsEnabled ? 'Real-Time AI Alerts are ON (Click to Mute / Turn OFF)' : 'Real-Time AI Alerts are MUTED / OFF (Click to Turn ON)'}"
+          >
+            <span class="alerts-toggle-icon">${store.aiAlertsEnabled ? '🔔' : '🔕'}</span>
+            <span class="alerts-toggle-text">${store.aiAlertsEnabled ? 'Alerts: ON' : 'Alerts: OFF'}</span>
+          </button>
+
           <!-- Light / Dark Theme Toggle Button -->
           <button class="theme-toggle-btn" onclick="window.toggleTheme()" title="${store.theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}">
             <span class="theme-toggle-icon">${store.theme === 'dark' ? '☀️' : '🌙'}</span>
@@ -413,9 +506,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Subscribe to store mutations
   store.subscribe((eventType, payload) => {
+    if (eventType === "ai_alerts_toggled") {
+      if (window.updateAlertToggleButtons) {
+        window.updateAlertToggleButtons(payload.enabled);
+      }
+    }
     if (eventType === "ai_alert") {
-      // Don't disturb active officer training session with background CCTV toasts
-      if (store.currentView !== "train-camera" && window.showToast) {
+      // Don't disturb active officer training session with background CCTV toasts, and verify alerts are enabled
+      if (store.aiAlertsEnabled && store.currentView !== "train-camera" && window.showToast) {
         window.showToast(`🚨 New AI Alert on ${payload.cameraId}: Suspected Spitting (${payload.aiConfidence}% conf)`);
       }
     }
