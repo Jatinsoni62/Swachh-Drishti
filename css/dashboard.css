@@ -238,3 +238,59 @@
 @media (max-width: 850px) {
   .case-split-view { grid-template-columns: 1fr; }
 }
+
+/* 3-Angle Facial Biometrics & Scanner HUD */
+.angle-pipeline-steps {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.angle-step-pill {
+  flex: 1;
+  min-width: 140px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-main);
+  text-align: center;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.angle-step-pill.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10b981;
+  color: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+}
+.angle-step-pill.completed {
+  background: rgba(5, 150, 105, 0.2);
+  border-color: #059669;
+  color: #34d399;
+}
+.angle-demo-box {
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-main);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+@keyframes pulseAngleArrow {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+.pulse-arrow {
+  animation: pulseAngleArrow 1.2s ease-in-out infinite;
+  display: inline-block;
+}

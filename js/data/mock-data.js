@@ -274,6 +274,7 @@ window.SWACHH_DATA = {
     {
       id: "SD-2026-001284",
       incidentId: "INC-2026-0810",
+      citizenId: "CIT-BPL-702",
       violation: "Public Gutkha/Paan Spitting",
       date: "12 Sep 2026",
       time: "12:15:30",
@@ -285,14 +286,15 @@ window.SWACHH_DATA = {
       issuedAt: "12:20:45",
       status: "ISSUED", // ISSUED, PAID, UNDER_REVIEW, CONFIRMED, CANCELLED
       paymentStatus: "UNPAID",
-      citizenPhone: "+91 98260 •••••",
-      offenderName: "A. K. Verma (Registered Citizen)",
+      citizenPhone: "+91 94250 11982",
+      offenderName: "Rajesh Kumar Verma",
       reviewRequested: true,
       reviewRef: "REV-2026-0021"
     },
     {
       id: "SD-2026-001280",
       incidentId: "INC-2026-0795",
+      citizenId: "CIT-BPL-701",
       violation: "Public Gutkha/Paan Spitting",
       date: "12 Sep 2026",
       time: "10:40:12",
@@ -304,8 +306,8 @@ window.SWACHH_DATA = {
       issuedAt: "10:45:00",
       status: "PAID",
       paymentStatus: "PAID (UPI Trans #BMC-884920)",
-      citizenPhone: "+91 94250 •••••",
-      offenderName: "Deepak S.",
+      citizenPhone: "+91 98260 44821",
+      offenderName: "Shreyansh Soni",
       reviewRequested: false
     }
   ],
@@ -315,8 +317,9 @@ window.SWACHH_DATA = {
       id: "REV-2026-0021",
       challanId: "SD-2026-001284",
       incidentId: "INC-2026-0810",
+      citizenId: "CIT-BPL-702",
       submittedAt: "13:05:22",
-      submittedBy: "A. K. Verma",
+      submittedBy: "Rajesh Kumar Verma",
       reason: "I was carrying an inhaler for allergic cough and covered my face with a handkerchief. I did not spit any tobacco or paan. Please re-evaluate the temporal camera angle.",
       attachmentName: "doctor_prescription_respiratory.pdf",
       status: "PENDING_FORWARD", // PENDING_FORWARD (with Officer), PENDING_HEAD (forwarded to Head), CONFIRMED, CANCELLED, MORE_INFO

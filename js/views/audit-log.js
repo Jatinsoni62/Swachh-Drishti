@@ -164,5 +164,65 @@ window.renderAuditView = function (container) {
         </div>
       </div>
     </div>
+
+    <!-- Civic Violation Incident Tracker (Below Audit & AI Metrics) -->
+    <div class="content-card" style="margin-top: 24px; border: 2px solid var(--primary-500);">
+      <div class="content-card-header" style="background: var(--bg-surface-elevated);">
+        <div class="content-card-title">
+          <span>📍</span>
+          <span>Civic Violation Incident Traceability & Tracker</span>
+        </div>
+        <span class="status-badge status-verified">Track ID Search</span>
+      </div>
+
+      <div class="content-card-body">
+        <p style="font-size: 0.82rem; color: var(--slate-600); margin-bottom: 14px;">
+          Track any detected municipal spitting event from raw CCTV optical tracking, neural behaviour filtering, biometric verification, to e-Challan generation & citizen dispute resolution:
+        </p>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;">
+          <input 
+            type="text" 
+            id="audit-tracker-input" 
+            placeholder="Enter Optical Track ID (e.g. P-014, P-009, P-003, P-022) or Incident ID..."
+            value="P-014"
+            style="flex: 1; min-width: 250px; padding: 10px 14px; font-family: monospace; font-size: 0.88rem; font-weight: 700; border: 1px solid var(--border-main); border-radius: var(--radius-sm); background: var(--bg-surface-elevated); color: var(--text-main);"
+          />
+          <button class="btn-primary" style="padding: 10px 20px; font-size: 0.85rem;" onclick="window.trackFromAuditView()">
+            <span>🔍</span>
+            <span>Track Incident Details →</span>
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 700;">Fast Tracker Presets:</span>
+          
+          <button class="btn-sim" style="font-size: 0.72rem; padding: 4px 8px; font-family: monospace;" onclick="window.trackPresetFromAudit('P-014')">
+            Track P-014 (Pending Review)
+          </button>
+          <button class="btn-sim" style="font-size: 0.72rem; padding: 4px 8px; font-family: monospace;" onclick="window.trackPresetFromAudit('P-009')">
+            Track P-009 (Challan Issued)
+          </button>
+          <button class="btn-sim" style="font-size: 0.72rem; padding: 4px 8px; font-family: monospace; color: #dc2626; border-color: #fca5a5;" onclick="window.trackPresetFromAudit('P-003')">
+            Track P-003 (False Positive Rejection)
+          </button>
+          <button class="btn-sim" style="font-size: 0.72rem; padding: 4px 8px; font-family: monospace; color: #0f766e; border-color: #99f6e4;" onclick="window.trackPresetFromAudit('P-022')">
+            Track P-022 (Citizen Medical Appeal)
+          </button>
+        </div>
+      </div>
+    </div>
   `;
+};
+
+window.trackFromAuditView = function () {
+  const input = document.getElementById("audit-tracker-input");
+  const trackId = input ? input.value.trim() : "P-014";
+  window.selectedTrackingId = trackId;
+  window.store.setView("incident-tracker");
+};
+
+window.trackPresetFromAudit = function (trackId) {
+  window.selectedTrackingId = trackId;
+  window.store.setView("incident-tracker");
 };

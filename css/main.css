@@ -523,7 +523,7 @@ body {
 
 /* Sidebar Navigation */
 .app-sidebar {
-  width: 250px;
+  width: 265px;
   background: var(--nav-bg);
   border-right: 1px solid var(--border-main);
   display: flex;
@@ -554,14 +554,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 9px 12px;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
+  white-space: nowrap;
 }
 .nav-item:hover {
   background: var(--nav-hover);
@@ -576,19 +577,44 @@ body {
 .nav-item-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
+  white-space: nowrap;
+  flex: 1;
 }
 .nav-badge {
   background: var(--red-100);
   color: var(--red-600);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 2px 7px;
-  border-radius: var(--radius-full);
+  padding: 2.5px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: 0.2px;
 }
 .nav-badge.blue {
   background: var(--teal-100);
   color: var(--teal-700);
+}
+.nav-badge.track-id {
+  background: rgba(2, 132, 199, 0.15);
+  color: #0284c7;
+  border: 1px solid rgba(2, 132, 199, 0.35);
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.15);
+}
+[data-theme="dark"] .nav-badge.track-id {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.35);
 }
 
 .sidebar-footer {
@@ -711,14 +737,17 @@ body {
 /* Toast Notification */
 .toast-container {
   position: fixed;
-  bottom: 24px;
+  top: 75px;
   right: 24px;
-  z-index: 9999;
+  z-index: 99999;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  pointer-events: none;
 }
 .toast {
+  pointer-events: auto;
+  max-width: 420px;
   background: var(--bg-surface-elevated);
   color: var(--text-main);
   border: 1px solid var(--border-main);

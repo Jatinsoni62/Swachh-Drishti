@@ -23,10 +23,13 @@ $jsFiles = @(
     "js/views/head-dashboard.js",
     "js/views/live-monitor.js",
     "js/views/evidence-modal.js",
+    "js/views/citizen-dashboard.js",
     "js/views/challan-view.js",
     "js/views/review-workflow.js",
     "js/views/hotspot-view.js",
     "js/views/audit-log.js",
+    "js/views/incident-tracker.js",
+    "js/views/train-camera.js",
     "js/app.js"
 )
 

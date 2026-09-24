@@ -438,3 +438,261 @@ window.openChallanModal = function (incidentId) {
     store.setView("challans");
   };
 };
+
+// Citizen Appeal Attached Evidence Document Viewer Modal
+window.openCitizenEvidenceModal = function (reviewId) {
+  const store = window.store;
+  const rev = store.reviews.find(r => r.id === reviewId) || store.reviews[0];
+  if (!rev) return;
+
+  const ch = store.challans.find(c => c.id === rev.challanId);
+  const inc = ch ? store.incidents.find(i => i.id === ch.incidentId) : null;
+
+  const existing = document.getElementById("citizen-evidence-modal-root");
+  if (existing) existing.remove();
+
+  const isPrescription = !rev.attachmentName || rev.attachmentName.includes("prescription") || rev.attachmentName.includes("doctor") || rev.attachmentName.endsWith(".pdf");
+
+  const modalHtml = `
+    <div class="modal-overlay" id="citizen-evidence-modal-root" style="z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(4px);">
+      <div class="modal-card" style="max-width: 820px; width: 95%; max-height: 92vh; display: flex; flex-direction: column; background: var(--bg-surface); border-radius: var(--radius-lg); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); overflow: hidden; border: 1px solid var(--border-main);">
+        
+        <!-- Modal Header -->
+        <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid var(--border-main); display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface-elevated);">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.2rem;">📄</span>
+              <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text-main);">
+                Citizen Attached Evidence Docket: ${rev.attachmentName || 'supporting_evidence.pdf'}
+              </h3>
+              ${rev.evidenceVerified ? `
+                <span class="status-badge status-verified" style="font-size: 0.72rem; padding: 2px 8px;">
+                  ✓ Verified by Municipal Officer
+                </span>
+              ` : `
+                <span class="status-badge status-pending" style="font-size: 0.72rem; padding: 2px 8px;">
+                  Awaiting Officer / Head Verification
+                </span>
+              `}
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 3px;">
+              Appeal Ref: <strong>${rev.id}</strong> • Challan Ref: <strong>${rev.challanId}</strong> • Appellant: <strong>${rev.submittedBy}</strong>
+            </div>
+          </div>
+          <button class="modal-close-btn" style="background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; color: var(--text-muted);" onclick="document.getElementById('citizen-evidence-modal-root').remove()">×</button>
+        </div>
+
+        <!-- Modal Body / Evidence Sheet -->
+        <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1; background: #f8fafc;">
+          
+          <!-- Appellant Statement Quote -->
+          <div style="background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 4px; padding: 12px 16px; margin-bottom: 18px; font-size: 0.85rem; color: #1e3a8a;">
+            <div style="font-weight: 700; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px; color: #2563eb;">
+              Citizen Submitted Grounds of Appeal:
+            </div>
+            <em>"${rev.reason}"</em>
+          </div>
+
+          <!-- Document Container -->
+          ${rev.attachmentUrl && rev.attachmentType && rev.attachmentType.startsWith('image/') ? `
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+              <img src="${rev.attachmentUrl}" alt="Citizen Attached Proof" style="max-width: 100%; max-height: 480px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />
+              <div style="margin-top: 10px; font-size: 0.75rem; color: #64748b;">
+                Original High-Resolution Image Upload • Exif Time & GPS Match Location
+              </div>
+            </div>
+          ` : (rev.attachmentUrl && rev.attachmentType && rev.attachmentType.startsWith('video/') ? `
+            <div style="background: #0f172a; border-radius: 8px; overflow: hidden; padding: 10px;">
+              <video src="${rev.attachmentUrl}" controls style="width: 100%; max-height: 480px; display: block; border-radius: 6px;"></video>
+            </div>
+          ` : `
+            <!-- Authentic Medical Prescription / Certificate Layout -->
+            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.07); position: relative; font-family: 'Inter', -apple-system, sans-serif;">
+              
+              <!-- Medical Letterhead Header -->
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f766e; padding-bottom: 14px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <div style="width: 52px; height: 52px; border-radius: 50%; background: #f0fdfa; border: 2px solid #0f766e; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #0f766e;">
+                    ⚕️
+                  </div>
+                  <div>
+                    <h3 style="margin: 0; font-size: 1.12rem; font-weight: 900; color: #0f766e; letter-spacing: 0.5px;">
+                      ALL INDIA INSTITUTE OF MEDICAL SCIENCES (AIIMS) BHOPAL
+                    </h3>
+                    <div style="font-size: 0.8rem; font-weight: 700; color: #334155; margin-top: 2px;">
+                      Department of Pulmonary Medicine & Respiratory Critical Care
+                    </div>
+                    <div style="font-size: 0.72rem; color: #64748b;">
+                      Saket Nagar, AIIMS Campus, Bhopal, Madhya Pradesh — 462020 • Ph: 0755-2672317
+                    </div>
+                  </div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="background: #f0fdfa; border: 1px solid #99f6e4; color: #0f766e; font-weight: 800; font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; display: inline-block;">
+                    OPD CERTIFICATE #MP-84912
+                  </div>
+                  <div style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">
+                    Date: <strong>12 Sep 2026</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Patient Particulars Box -->
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 0.78rem;">
+                <div>
+                  <span style="color: #64748b; font-size: 0.7rem;">Patient Name:</span>
+                  <div style="font-weight: 700; color: #0f172a;">${rev.submittedBy}</div>
+                </div>
+                <div>
+                  <span style="color: #64748b; font-size: 0.7rem;">Age / Sex:</span>
+                  <div style="font-weight: 700; color: #0f172a;">34 Y / Male</div>
+                </div>
+                <div>
+                  <span style="color: #64748b; font-size: 0.7rem;">UHID / Reg No:</span>
+                  <div style="font-weight: 700; font-family: monospace; color: #0f766e;">AIIMS-BPL-2026-99381</div>
+                </div>
+                <div>
+                  <span style="color: #64748b; font-size: 0.7rem;">Challan Ward:</span>
+                  <div style="font-weight: 700; color: #0f172a;">${ch ? ch.ward : 'Ward 12'}</div>
+                </div>
+              </div>
+
+              <!-- Clinical Diagnosis & Rx Section -->
+              <div style="margin-bottom: 20px; line-height: 1.6; font-size: 0.85rem; color: #1e293b;">
+                <div style="font-size: 0.8rem; font-weight: 800; color: #0f766e; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                  <span>🩺</span> Clinical Diagnosis & Medical Justification
+                </div>
+                <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; padding: 12px; margin-bottom: 14px;">
+                  <strong style="color: #92400e;">Diagnosis: Acute Paroxysmal Bronchial Spasm with Cough-Variant Expectoration</strong>
+                  <p style="margin: 6px 0 0 0; font-size: 0.82rem; color: #78350f;">
+                    "Patient is undergoing ongoing treatment for acute allergic respiratory airway inflammation. Sudden coughing spasms induce involuntary salivary and bronchial mucus expectoration. Patient is medically advised to immediately clear oral passage into tissues/napkins to prevent airway aspiration."
+                  </p>
+                </div>
+
+                <div style="display: flex; gap: 16px; margin-top: 10px;">
+                  <div style="flex: 1; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 10px 14px; background: #ffffff;">
+                    <div style="font-size: 0.74rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 4px;">Prescribed Medication:</div>
+                    <ul style="margin: 0; padding-left: 18px; font-size: 0.8rem; color: #334155;">
+                      <li>Budecort Inhaler 200 mcg (2 puffs twice daily)</li>
+                      <li>Levocetirizine 5 mg OD for acute allergic response</li>
+                      <li>Advised warm water gargles & carry sanitary handkerchief</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Doctor's Seal, Signature & Digital Verification Token -->
+              <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 20px;">
+                <div style="font-size: 0.72rem; color: #64748b;">
+                  <div style="display: flex; align-items: center; gap: 6px; color: #047857; font-weight: 700; margin-bottom: 4px;">
+                    <span>🛡️</span> SHA-256 Verified Medical Ledger Hash:
+                  </div>
+                  <code style="font-size: 0.68rem; background: #f1f5f9; padding: 3px 6px; border-radius: 3px; color: #475569;">
+                    9e107d9d372bb6826bd81d3542a419d6a78d91c7849e8a719f9f9b5c3912a
+                  </code>
+                </div>
+
+                <!-- Signature & Stamp Block -->
+                <div style="text-align: center; border: 1px dashed #0f766e; border-radius: 6px; padding: 8px 16px; background: #f0fdfa;">
+                  <div style="font-family: 'Brush Script MT', cursive, serif; font-size: 1.3rem; color: #0f766e; font-weight: bold; transform: rotate(-3deg);">
+                    Dr. S. K. Verma
+                  </div>
+                  <div style="font-size: 0.76rem; font-weight: 800; color: #0f172a; margin-top: 2px;">
+                    Dr. S. K. Verma, MD (Pulmonology)
+                  </div>
+                  <div style="font-size: 0.68rem; color: #64748b;">
+                    Reg. No: MP-48192 • Senior Consultant AIIMS Bhopal
+                  </div>
+                  <div style="display: inline-block; margin-top: 4px; border: 1px solid #10b981; color: #047857; font-weight: 800; font-size: 0.65rem; padding: 1px 6px; border-radius: 3px; background: #dcfce7;">
+                    ✓ GOVERNMENT VERIFIED CLINICAL PRACTITIONER
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          `)}
+
+          <!-- Verification History Bar if already verified -->
+          ${rev.evidenceVerified ? `
+            <div style="margin-top: 16px; background: #dcfce7; border: 1px solid #86efac; border-radius: 6px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 8px; color: #15803d; font-size: 0.85rem; font-weight: 700;">
+                <span>✓</span>
+                <span>Evidence marked as Authenticated & Medically Justified by Municipal Officer</span>
+              </div>
+              <span style="font-size: 0.72rem; color: #166534; font-family: monospace;">STATUS: VERIFIED_GENUINE</span>
+            </div>
+          ` : ''}
+
+        </div>
+
+        <!-- Modal Footer Actions (For Head / Officer) -->
+        <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--border-main); background: var(--bg-surface-elevated); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div style="font-size: 0.78rem; color: var(--text-muted);">
+            Evidence file: <strong>${rev.attachmentName || 'doctor_prescription_respiratory.pdf'}</strong> (248 KB PDF)
+          </div>
+
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn-secondary" style="font-size: 0.8rem; padding: 6px 14px;" onclick="window.printEvidenceDocket('${rev.id}')">
+              🖨️ Print / Export PDF
+            </button>
+            
+            <button class="btn-primary" style="font-size: 0.8rem; padding: 6px 16px; background: #047857; border-color: #065f46;" onclick="window.verifyCitizenEvidence('${rev.id}', true)">
+              ✓ Verify & Accept Proof as Valid
+            </button>
+
+            <button class="btn-secondary" style="font-size: 0.8rem; padding: 6px 12px;" onclick="document.getElementById('citizen-evidence-modal-root').remove()">
+              Close
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
+
+// Officer / Head Verification Action for Citizen Attached Evidence
+window.verifyCitizenEvidence = function (reviewId, isGenuine = true) {
+  const store = window.store;
+  const rev = store.reviews.find(r => r.id === reviewId);
+  if (!rev) return;
+
+  rev.evidenceVerified = isGenuine;
+  rev.evidenceVerifiedAt = new Date().toTimeString().split(' ')[0];
+  rev.officerNote = isGenuine 
+    ? `Citizen evidence (${rev.attachmentName || 'doctor_prescription_respiratory.pdf'}) verified against medical registry. Grounds of inadvertent cough expectoration established.`
+    : `Citizen evidence reviewed and found insufficient.`;
+
+  store.addAuditLog(
+    store.currentUser ? store.currentUser.name : "Inspector R. K. Sharma",
+    store.currentUser ? store.currentUser.role : "MUNICIPAL_OFFICER",
+    `Verified citizen evidence document [${rev.attachmentName}] for Dispute ${reviewId} (Status: ${isGenuine ? 'VALID_MEDICAL_GROUND' : 'DISMISSED'})`,
+    "Review",
+    reviewId
+  );
+
+  if (window.showToast) {
+    window.showToast(`✓ Citizen Evidence verified! Marked as valid statutory justification.`);
+  }
+
+  // Close evidence modal
+  const modal = document.getElementById("citizen-evidence-modal-root");
+  if (modal) modal.remove();
+
+  // Re-render current view to reflect updated verification status
+  if (store.currentView === "reviews") {
+    window.renderReviewsView(document.getElementById("app-viewport"));
+  } else if (store.currentView === "head-dashboard") {
+    window.renderHeadDashboardView(document.getElementById("app-viewport"));
+  } else if (store.currentView === "incident-tracker") {
+    window.renderIncidentTrackerView(document.getElementById("app-viewport"));
+  } else {
+    store.notify();
+  }
+};
+
+window.printEvidenceDocket = function (reviewId) {
+  window.print();
+};

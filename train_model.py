@@ -5,51 +5,115 @@ Enforces the core municipal rule:
 "Spitting into a dustbin or bucket is LAWFUL CIVIC DISPOSAL and NOT a violation."
 
 Features:
-1. Trains YOLOv8/YOLO11 on custom dataset (with dustbin_bucket class).
-2. Spatial Intersection Filter: Suppresses violations if the trajectory endpoint
+1. Directly accesses and indexes the prototype 'images/' directory.
+2. Trains YOLOv8/YOLO11 on custom dataset (with dustbin_bucket & compliant_disposal classes).
+3. Spatial Intersection Filter: Suppresses violations if the trajectory endpoint
    falls inside or near the bounding box of a detected dustbin/bucket/spittoon.
 """
 
 import os
 import sys
 import glob
+import shutil
+import random
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+IMAGES_DIR = os.path.join(BASE_DIR, "images")
+DATASET_DIR = os.path.join(BASE_DIR, "dataset")
 
 def check_dataset_status():
     """Inspects the local images directory and annotation files."""
-    images_dir = os.path.join(os.path.dirname(__file__), "images")
-    if not os.path.exists(images_dir):
-        print(f"[!] Warning: '{images_dir}' not found.")
+    if not os.path.exists(IMAGES_DIR):
+        print(f"[!] Warning: '{IMAGES_DIR}' not found.")
         return 0, 0
 
     img_extensions = ("*.jpg", "*.jpeg", "*.png", "*.webp", "*.avif")
     images = []
     for ext in img_extensions:
-        images.extend(glob.glob(os.path.join(images_dir, ext)))
+        images.extend(glob.glob(os.path.join(IMAGES_DIR, ext)))
 
-    labels = glob.glob(os.path.join(images_dir, "*.txt"))
+    labels = glob.glob(os.path.join(IMAGES_DIR, "*.txt"))
+    print(f"[*] Workspace images path: {IMAGES_DIR}")
     print(f"[*] Found {len(images)} raw images in 'images/' folder.")
     print(f"[*] Found {len(labels)} YOLO annotation txt files in 'images/' folder.")
     
-    if len(labels) == 0:
-        print("\n[!] Note: You have uploaded the raw images, but YOLO model training requires")
-        print("    annotation text files (.txt) matching each image, or a Roboflow export zip.")
-        print("    See 'dataset/README.md' for steps to export or provide annotations.\n")
+    if len(images) > 0:
+        print("\n[✓] Local images detected:")
+        for idx, img in enumerate(images[:6]):
+            print(f"    - [{idx+1}] {os.path.basename(img)} ({os.path.getsize(img) // 1024} KB)")
+        if len(images) > 6:
+            print(f"    ... and {len(images) - 6} more images in 'images/' folder.\n")
+
     return len(images), len(labels)
 
-def train_yolo_model(data_yaml_path="dataset/data.yaml", epochs=50, imgsz=640, model_type="yolov8n.pt"):
+def prepare_dataset_splits(val_ratio=0.2):
+    """
+    Organizes images from 'images/' into YOLO training structure:
+    dataset/images/train, dataset/images/val
+    """
+    img_extensions = ("*.jpg", "*.jpeg", "*.png", "*.webp", "*.avif")
+    images = []
+    for ext in img_extensions:
+        images.extend(glob.glob(os.path.join(IMAGES_DIR, ext)))
+
+    if not images:
+        print("[!] No images found in 'images/' to prepare.")
+        return False
+
+    train_img_dir = os.path.join(DATASET_DIR, "images", "train")
+    val_img_dir = os.path.join(DATASET_DIR, "images", "val")
+    train_lbl_dir = os.path.join(DATASET_DIR, "labels", "train")
+    val_lbl_dir = os.path.join(DATASET_DIR, "labels", "val")
+
+    for d in [train_img_dir, val_img_dir, train_lbl_dir, val_lbl_dir]:
+        os.makedirs(d, exist_ok=True)
+
+    random.seed(42)
+    shuffled_imgs = list(images)
+    random.shuffle(shuffled_imgs)
+
+    split_idx = int(len(shuffled_imgs) * (1 - val_ratio))
+    train_imgs = shuffled_imgs[:split_idx]
+    val_imgs = shuffled_imgs[split_idx:]
+
+    print(f"[*] Preparing dataset splits: {len(train_imgs)} train images, {len(val_imgs)} val images...")
+
+    for img in train_imgs:
+        dest = os.path.join(train_img_dir, os.path.basename(img))
+        shutil.copy2(img, dest)
+        # Check matching label
+        base_name = os.path.splitext(os.path.basename(img))[0]
+        lbl = os.path.join(IMAGES_DIR, f"{base_name}.txt")
+        if os.path.exists(lbl):
+            shutil.copy2(lbl, os.path.join(train_lbl_dir, f"{base_name}.txt"))
+
+    for img in val_imgs:
+        dest = os.path.join(val_img_dir, os.path.basename(img))
+        shutil.copy2(img, dest)
+        base_name = os.path.splitext(os.path.basename(img))[0]
+        lbl = os.path.join(IMAGES_DIR, f"{base_name}.txt")
+        if os.path.exists(lbl):
+            shutil.copy2(lbl, os.path.join(val_lbl_dir, f"{base_name}.txt"))
+
+    print("[✓] Dataset preparation complete! Structure ready at dataset/")
+    return True
+
+def train_yolo_model(data_yaml_path=os.path.join(DATASET_DIR, "data.yaml"), epochs=50, imgsz=640, model_type="yolov8n.pt"):
     """
     Trains Ultralytics YOLO model on custom dataset with receptacle awareness.
     Run via:
-        python train_model.py
-    Or in Google Colab:
-        !pip install ultralytics
-        !python train_model.py
+        python train_model.py --train
     """
     try:
         from ultralytics import YOLO
     except ImportError:
-        print("[!] Ultralytics not installed. Install via: pip install ultralytics")
-        print("    Or run in Google Colab: !pip install ultralytics")
+        print("\n[!] Ultralytics not installed in local environment.")
+        print("    Install locally: pip install ultralytics")
+        print("    Or run in Google Colab (Free GPU):")
+        print("      !pip install ultralytics")
+        print("      from ultralytics import YOLO")
+        print("      model = YOLO('yolov8n.pt')")
+        print(f"      model.train(data='{data_yaml_path}', epochs={epochs}, imgsz={imgsz})")
         return
 
     print(f"[*] Initializing model: {model_type}...")
@@ -80,20 +144,18 @@ def is_violation_suppressed_by_receptacle(spit_box, receptacle_boxes, buffer_mar
     sx1, sy1, sx2, sy2 = spit_box
 
     for rx1, ry1, rx2, ry2 in receptacle_boxes:
-        # Expand receptacle box by buffer margin to account for trajectory arc
         expanded_rx1 = max(0.0, rx1 - buffer_margin)
         expanded_ry1 = max(0.0, ry1 - buffer_margin)
         expanded_rx2 = min(1.0, rx2 + buffer_margin)
         expanded_ry2 = min(1.0, ry2 + buffer_margin)
 
-        # Check box intersection
         inter_x1 = max(sx1, expanded_rx1)
         inter_y1 = max(sy1, expanded_ry1)
         inter_x2 = min(sx2, expanded_rx2)
         inter_y2 = min(sy2, expanded_ry2)
 
         if inter_x1 < inter_x2 and inter_y1 < inter_y2:
-            return True, "Suppressed: Spitting occurred into/near detected municipal dustbin/bucket."
+            return True, "Suppressed: Spitting occurred into/near detected municipal dustbin/bucket. 0 FINE."
 
     return False, "Confirmed: Trajectory landed on public road/sidewalk surface."
 
@@ -103,9 +165,18 @@ if __name__ == "__main__":
     print("=" * 70)
     img_count, lbl_count = check_dataset_status()
     
-    if len(sys.argv) > 1 and sys.argv[1] == "--train":
-        train_yolo_model()
+    if len(sys.argv) > 1:
+        flag = sys.argv[1]
+        if flag == "--prepare":
+            prepare_dataset_splits()
+        elif flag == "--train":
+            prepare_dataset_splits()
+            train_yolo_model()
+        elif flag == "--inspect":
+            print(f"[i] Dataset inspect complete: {img_count} images found.")
     else:
-        print("[i] To execute YOLO model training, run:")
-        print("    python train_model.py --train")
-        print("    Or run the commands outlined in dataset/README.md in Google Colab / Kaggle.\n")
+        print("[i] Available CLI commands:")
+        print("    python train_model.py --inspect   # Inspect all 36 images in images/")
+        print("    python train_model.py --prepare   # Organize images/ into train/val splits")
+        print("    python train_model.py --train     # Prepare dataset & execute YOLO model training\n")
+

@@ -32,11 +32,30 @@ document.addEventListener("DOMContentLoaded", () => {
   // Global Portals & Navigation Launchers
   window.enterPortal = function (role) {
     store.setUserRole(role);
-    store.setView(role === "MUNICIPAL_HEAD" ? "head-dashboard" : "dashboard");
+    if (role === "MUNICIPAL_HEAD") {
+      store.setView("head-dashboard");
+    } else if (role === "CITIZEN") {
+      store.setView("citizen-dashboard");
+    } else {
+      store.setView("dashboard");
+    }
+  };
+
+  window.enterCitizenDashboard = function (citizenId) {
+    if (citizenId) {
+      store.loginCitizen(citizenId);
+    } else {
+      store.setUserRole("CITIZEN");
+      store.setView("citizen-dashboard");
+    }
   };
 
   window.enterCitizenView = function (challanId = "SD-2026-001284") {
     store.setView("citizen-challan", { challanId });
+  };
+
+  window.openTrainCameraStudio = function () {
+    store.setView("train-camera");
   };
 
   // Render Persistent Supervisory Banner
@@ -68,7 +87,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!headerContainer) return;
 
     const isHead = store.currentUser.role === "MUNICIPAL_HEAD";
-    const isCitizen = store.currentView === "citizen-challan" || store.currentView === "landing";
+    const isCitizenRole = store.currentUser.role === "CITIZEN";
+    const isCitizen = isCitizenRole || store.currentView === "citizen-dashboard" || store.currentView === "citizen-challan" || store.currentView === "landing";
 
     headerContainer.innerHTML = `
       <header class="gov-header">
@@ -116,7 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="user-info">
               <span class="user-name">${store.currentUser.name}</span>
               <span class="user-role-badge">
-                ${store.isHeadViewingAsOfficer ? 'Officer Mode (Head)' : (isHead ? 'Municipal Head (Central)' : 'Municipal Officer')}
+                ${store.isHeadViewingAsOfficer ? 'Officer Mode (Head)' : (isHead ? 'Municipal Head (Central)' : (isCitizenRole ? 'Verified Citizen' : 'Municipal Officer'))}
               </span>
             </div>
 
@@ -167,8 +187,74 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     sidebarContainer.style.display = "flex";
 
-    const isHead = store.currentUser.role === "MUNICIPAL_HEAD" && !store.isHeadViewingAsOfficer;
     const view = store.currentView;
+    const isCitizenMode = store.currentUser.role === "CITIZEN" || view === "citizen-dashboard" || view === "citizen-challan";
+    if (isCitizenMode) {
+      const citizen = store.activeCitizen || store.registeredCitizens[0];
+      const citizenChallans = store.challans.filter(c => c.citizenId === citizen.id || (c.offenderName && c.offenderName.toLowerCase() === citizen.name.toLowerCase()));
+      const unpaidCount = citizenChallans.filter(c => c.status === "ISSUED").length;
+
+      sidebarContainer.innerHTML = `
+        <aside class="app-sidebar">
+          <div>
+            <!-- Citizen Identity Badge -->
+            <div style="padding: 12px 14px; background: rgba(16, 185, 129, 0.1); border-radius: var(--radius-md); border: 1px solid rgba(16, 185, 129, 0.25); margin-bottom: 16px;">
+              <div style="font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: #047857; letter-spacing: 0.5px;">
+                Civic Portal • आम नागरिक
+              </div>
+              <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-main); margin-top: 2px;">
+                ${citizen.name}
+              </div>
+              <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace; margin-top: 1px;">
+                ID: ${citizen.id} • ${citizen.ward}
+              </div>
+            </div>
+
+            <div class="nav-group-title">Citizen Services</div>
+            <ul class="nav-links">
+              <li class="nav-item ${view === 'citizen-dashboard' ? 'active' : ''}" onclick="window.enterCitizenDashboard()">
+                <div class="nav-item-left">
+                  <span>👤</span>
+                  <span>My Dashboard & Face ID</span>
+                </div>
+                ${unpaidCount > 0 ? `<span class="nav-badge" style="background: #ef4444; color: #ffffff;">${unpaidCount} Due</span>` : `<span class="nav-badge" style="background: #10b981; color: #ffffff;">Clean</span>`}
+              </li>
+
+              <li class="nav-item ${view === 'citizen-challan' ? 'active' : ''}" onclick="window.enterCitizenView('SD-2026-001284')">
+                <div class="nav-item-left">
+                  <span>📜</span>
+                  <span>My Notices & Receipts</span>
+                </div>
+                <span class="nav-badge blue">${citizenChallans.length}</span>
+              </li>
+            </ul>
+
+            <div class="nav-group-title" style="margin-top: 22px;">Official Login</div>
+            <ul class="nav-links">
+              <li class="nav-item" onclick="window.store.setView('login')">
+                <div class="nav-item-left">
+                  <span>⇄</span>
+                  <span>Switch to Officer / Head Portal</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div class="sidebar-footer">
+            <div class="bmc-seal">
+              <img src="${window.getLogoUrl()}" class="seal-logo-img" alt="Emblem" style="width: 24px; height: 24px; object-fit: contain;" />
+              <div>
+                <strong>Bhopal Municipal Corp</strong>
+                <div>Public Citizen Fair Portal</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      `;
+      return;
+    }
+
+    const isHead = store.currentUser.role === "MUNICIPAL_HEAD" && !store.isHeadViewingAsOfficer;
     const pendingIncidents = store.incidents.filter(i => i.status === "PENDING").length;
     const pendingReviews = store.reviews.filter(r => r.status === "PENDING_HEAD" || r.status === "PENDING_FORWARD").length;
 
@@ -234,15 +320,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 <span>Audit & AI Metrics</span>
               </div>
             </li>
-          </ul>
 
-          <div class="nav-group-title">Public Portal</div>
-          <ul class="nav-links">
-            <li class="nav-item ${view === 'citizen-challan' ? 'active' : ''}" onclick="window.enterCitizenView('SD-2026-001284')">
+            <li class="nav-item ${view === 'incident-tracker' ? 'active' : ''}" onclick="window.store.setView('incident-tracker')" title="Trace civic violations by optical Track ID or Incident Ref">
               <div class="nav-item-left">
-                <span>📱</span>
-                <span>Citizen Notice View</span>
+                <span>📍</span>
+                <span>Incident Tracker</span>
               </div>
+              <span class="nav-badge track-id">Track ID</span>
+            </li>
+
+            <li class="nav-item ${view === 'train-camera' ? 'active' : ''}" onclick="window.store.setView('train-camera')" title="Interactive Camera Training Studio">
+              <div class="nav-item-left">
+                <span>🎥</span>
+                <span>Train Camera</span>
+              </div>
+              <span class="nav-badge" style="background: rgba(16, 185, 129, 0.15); color: #059669; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.65rem; font-weight: 800; padding: 2px 7px;">Studio</span>
             </li>
           </ul>
         </div>
@@ -302,6 +394,15 @@ document.addEventListener("DOMContentLoaded", () => {
       case "analytics":
         window.renderAuditView(viewport);
         break;
+      case "incident-tracker":
+        window.renderIncidentTrackerView(viewport);
+        break;
+      case "train-camera":
+        window.renderTrainCameraView(viewport);
+        break;
+      case "citizen-dashboard":
+        window.renderCitizenDashboardView(viewport);
+        break;
       case "citizen-challan":
         window.renderCitizenChallanView(viewport, store.selectedChallanId);
         break;
@@ -313,11 +414,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // Subscribe to store mutations
   store.subscribe((eventType, payload) => {
     if (eventType === "ai_alert") {
-      if (window.showToast) {
+      // Don't disturb active officer training session with background CCTV toasts
+      if (store.currentView !== "train-camera" && window.showToast) {
         window.showToast(`🚨 New AI Alert on ${payload.cameraId}: Suspected Spitting (${payload.aiConfidence}% conf)`);
       }
     }
-    renderView();
+    // Don't interrupt active camera training view when background events occur
+    if (store.currentView !== "train-camera") {
+      renderView();
+    }
   });
 
   // Initial View Rendering (Officer Dashboard as primary operational screen)

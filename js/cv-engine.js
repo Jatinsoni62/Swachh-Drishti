@@ -1,4 +1,4 @@
-// SWACHH-DRISHTI Multi-Person Computer Vision & Individual Action Tracker
+// SWACHH-DRISHTI Multi-Person Computer Vision & Biomechanical Action Verifier
 
 class SwachhCVEngine {
   constructor() {
@@ -21,14 +21,41 @@ class SwachhCVEngine {
     // Multi-Person Tracker State (tracks everyone in frame individually)
     this.tracks = []; // Array of active tracked persons
     this.nextTrackNum = 1;
-    this.maxTrackingDistance = 85; // Max centroid distance for association
+    this.maxTrackingDistance = 90; // Max centroid distance for association
 
     // Global settings & sensitivity
     this.temporalBufferSize = 30;
     this.temporalFrameCount = 0;
-    this.spitDetectionThreshold = 50; // Threshold to trigger violation
-    this.sensitivity = "high";
     this.cooldownFrames = 0;
+    this.sensitivity = "medium"; // "high", "medium", "low"
+
+    // Tuned Sensitivity Profiles (Requires progressive biomechanical confirmation)
+    this.sensitivityProfiles = {
+      high: { threshold: 65, minBurst: 14, minConsecutive: 4, label: "High (Responsive)" },
+      medium: { threshold: 75, minBurst: 18, minConsecutive: 5, label: "Medium (Balanced / Recommended)" },
+      low: { threshold: 85, minBurst: 24, minConsecutive: 7, label: "Low (Strict Anti-False-Positive)" }
+    };
+    this.spitDetectionThreshold = this.sensitivityProfiles.medium.threshold;
+
+    // Live Webcam Municipal Dustbin Safe Zone (Configurable Position & Size)
+    this.dustbinActive = true; // Enabled by default so users always have a safe receptacle
+    this.dustbinModeUserActive = false; // When user clicks "I'm using Dustbin"
+    this.webcamDustbin = {
+      id: "BIN-LIVE-01",
+      label: "Municipal Smart Dustbin (Ward 12)",
+      type: "dustbin",
+      x: 480,
+      y: 195,
+      width: 70,
+      height: 95
+    };
+
+    // Camera Training Recording Session Buffer
+    this.isRecordingTraining = false;
+    this.trainingStartTime = null;
+    this.trainingSessionFrames = [];
+    this.trainingDetectedGestures = [];
+    this.trainingKeyframes = [];
 
     // MediaRecorder for capturing real camera clips
     this.webcamStream = null;
@@ -36,7 +63,7 @@ class SwachhCVEngine {
     this.recordedChunks = [];
     this.lastRecordedBlobUrl = null;
 
-    // Audio context for auditory feedback
+    // Audio context for auditory feedback (alert vs pleasant civic chime)
     this.audioCtx = null;
 
     // Simulation synthetic actors (3 distinct pedestrians tracked individually)
@@ -111,13 +138,63 @@ class SwachhCVEngine {
     ];
 
     this.onDetectionListeners = [];
+    this.loadDustbinConfig();
   }
 
   setSensitivity(level) {
     this.sensitivity = level;
-    if (level === "high") this.spitDetectionThreshold = 38;
-    else if (level === "medium") this.spitDetectionThreshold = 55;
-    else this.spitDetectionThreshold = 75;
+    const profile = this.sensitivityProfiles[level] || this.sensitivityProfiles.medium;
+    this.spitDetectionThreshold = profile.threshold;
+  }
+
+  toggleLiveDustbin(forcedState) {
+    this.dustbinActive = forcedState !== undefined ? forcedState : !this.dustbinActive;
+    return this.dustbinActive;
+  }
+
+  toggleDustbinUserMode(forcedState) {
+    this.dustbinModeUserActive = forcedState !== undefined ? forcedState : !this.dustbinModeUserActive;
+    return this.dustbinModeUserActive;
+  }
+
+  setDustbinPosition(x, y) {
+    const clampedX = Math.max(10, Math.min(560, Math.round(x)));
+    const clampedY = Math.max(10, Math.min(270, Math.round(y)));
+    if (this.mode === "webcam") {
+      this.webcamDustbin.x = clampedX;
+      this.webcamDustbin.y = clampedY;
+    } else {
+      if (this.receptacles && this.receptacles[0]) {
+        this.receptacles[0].x = clampedX;
+        this.receptacles[0].y = clampedY;
+      }
+    }
+    return { x: clampedX, y: clampedY };
+  }
+
+  getDustbinPosition() {
+    if (this.mode === "webcam") {
+      return {
+        x: this.webcamDustbin.x,
+        y: this.webcamDustbin.y,
+        width: this.webcamDustbin.width,
+        height: this.webcamDustbin.height
+      };
+    }
+    const r = (this.receptacles && this.receptacles[0]) ? this.receptacles[0] : { x: 500, y: 195, width: 58, height: 72 };
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  }
+
+  resetDustbinPosition() {
+    if (this.mode === "webcam") {
+      this.webcamDustbin.x = 480;
+      this.webcamDustbin.y = 200;
+    } else {
+      if (this.receptacles && this.receptacles[0]) {
+        this.receptacles[0].x = 500;
+        this.receptacles[0].y = 195;
+      }
+    }
   }
 
   attachElements(videoEl, canvasEl) {
@@ -126,10 +203,40 @@ class SwachhCVEngine {
     if (this.canvasElement) {
       this.ctx = this.canvasElement.getContext("2d");
     }
+    if (this.mode === "webcam" && this.webcamStream && this.videoElement) {
+      if (this.videoElement.srcObject !== this.webcamStream) {
+        this.videoElement.srcObject = this.webcamStream;
+        this.videoElement.play().catch(() => {});
+      }
+    }
+    if (this.isRunning) {
+      if (!this.animFrameId) {
+        if (this.mode === "webcam") {
+          this.runWebcamInferenceLoop();
+        } else {
+          this.startSimulationLoop();
+        }
+      }
+    }
   }
 
   start() {
-    if (this.isRunning) return;
+    if (this.isRunning) {
+      if (this.mode === "webcam") {
+        if (this.videoElement && this.webcamStream && this.videoElement.srcObject !== this.webcamStream) {
+          this.videoElement.srcObject = this.webcamStream;
+          this.videoElement.play().catch(() => {});
+        }
+        if (!this.animFrameId) {
+          this.runWebcamInferenceLoop();
+        }
+      } else {
+        if (!this.animFrameId) {
+          this.startSimulationLoop();
+        }
+      }
+      return;
+    }
     this.isRunning = true;
     this.temporalFrameCount = 0;
     this.cooldownFrames = 0;
@@ -142,6 +249,35 @@ class SwachhCVEngine {
     }
   }
 
+  pause() {
+    this.isRunning = false;
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
+    if (this.videoElement) {
+      try { this.videoElement.pause(); } catch (e) { }
+    }
+  }
+
+  resume() {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    if (this.mode === "webcam") {
+      if (this.videoElement && this.webcamStream) {
+        if (this.videoElement.srcObject !== this.webcamStream) {
+          this.videoElement.srcObject = this.webcamStream;
+        }
+        this.videoElement.play().catch(() => {});
+        this.runWebcamInferenceLoop();
+      } else {
+        this.startWebcam();
+      }
+    } else {
+      this.startSimulationLoop();
+    }
+  }
+
   stop() {
     this.isRunning = false;
     if (this.animFrameId) {
@@ -149,7 +285,7 @@ class SwachhCVEngine {
       this.animFrameId = null;
     }
     if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
-      try { this.mediaRecorder.stop(); } catch (e) {}
+      try { this.mediaRecorder.stop(); } catch (e) { }
     }
     if (this.webcamStream) {
       this.webcamStream.getTracks().forEach(track => track.stop());
@@ -195,30 +331,58 @@ class SwachhCVEngine {
       gain.connect(this.audioCtx.destination);
       osc.start();
       osc.stop(this.audioCtx.currentTime + 0.25);
-    } catch (e) {}
+    } catch (e) { }
+  }
+
+  playChimeTone() {
+    try {
+      if (!this.audioCtx) {
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (this.audioCtx.state === "suspended") {
+        this.audioCtx.resume();
+      }
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(523.25, this.audioCtx.currentTime); // C5
+      osc.frequency.setValueAtTime(659.25, this.audioCtx.currentTime + 0.12); // E5
+      osc.frequency.setValueAtTime(783.99, this.audioCtx.currentTime + 0.24); // G5
+      osc.frequency.setValueAtTime(1046.50, this.audioCtx.currentTime + 0.36); // C6
+      gain.gain.setValueAtTime(0.25, this.audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.55);
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+      osc.start();
+      osc.stop(this.audioCtx.currentTime + 0.55);
+    } catch (e) { }
   }
 
   async startWebcam() {
     try {
-      this.webcamStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 360 },
-          facingMode: "user"
-        },
-        audio: false
-      });
+      if (!this.webcamStream || !this.webcamStream.active) {
+        this.webcamStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 360 },
+            facingMode: "user"
+          },
+          audio: false
+        });
+      }
 
       if (this.videoElement) {
         this.videoElement.srcObject = this.webcamStream;
-        await this.videoElement.play();
+        await this.videoElement.play().catch(() => {});
       }
 
       this.initMediaRecorder();
       this.runWebcamInferenceLoop();
     } catch (err) {
       console.warn("Webcam access error:", err);
-      alert("Camera access denied or unavailable. Switching to Multi-Pedestrian Simulation Mode.");
+      if (window.showToast) {
+        window.showToast("⚠️ Physical camera unavailable or access denied. Switched to Multi-Pedestrian Simulation Feed.");
+      }
       this.setMode("simulation");
     }
   }
@@ -261,23 +425,119 @@ class SwachhCVEngine {
         this.cooldownFrames--;
       }
 
-      // 1. Detect multi-person spatial motion clusters from webcam frames
+      // 1. Draw Municipal Smart Dustbin on Webcam Feed if active
+      if (this.dustbinActive) {
+        this.renderWebcamDustbin(w, h);
+      }
+
+      // 2. High-Fidelity Spatial & Biomechanical Motion Detection
       const detections = this.detectMultiPersonBlobs(w, h);
 
-      // 2. Associate detections with individual persistent tracks (ByteTrack algorithm)
+      // 3. Multi-Person Association and Biomechanical Verification Pipeline
       this.updateMultiPersonTracks(detections, w, h);
 
-      // 3. Render tracking boxes, velocity vectors, and individual status for every person
+      // 4. Render Tracking Boxes, Biometrics & Action Diagnostics
       this.renderMultiPersonTracks(w, h);
 
-      // 4. Render top HUD showing all actively tracked persons
+      // 5. Render Top Verifier HUD
       this.renderTrackingHUD(w, h);
     }
 
     this.animFrameId = requestAnimationFrame(() => this.runWebcamInferenceLoop());
   }
 
-  // Detect motion clusters / person presences across vertical sectors
+  // Render Municipal Dustbin directly onto the Webcam Viewport
+  renderWebcamDustbin(w, h) {
+    const bin = this.webcamDustbin;
+    const bx = bin.x = Math.min(w - bin.width - 20, Math.max(20, bin.x));
+    const by = bin.y = Math.min(h - bin.height - 20, Math.max(20, bin.y));
+    const bw = bin.width;
+    const bh = bin.height;
+
+    // Glowing target zone indicator (dashed green)
+    this.ctx.save();
+    this.ctx.strokeStyle = this.dustbinModeUserActive ? "#34d399" : "#10b981";
+    this.ctx.lineWidth = this.dustbinModeUserActive ? 2.5 : 1.5;
+    this.ctx.setLineDash([6, 4]);
+    this.ctx.strokeRect(bx - 12, by - 12, bw + 24, bh + 24);
+    this.ctx.setLineDash([]);
+
+    // Container Shadow
+    this.ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+    this.ctx.beginPath();
+    this.ctx.ellipse(bx + bw / 2, by + bh + 4, bw * 0.52, 9, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Receptacle Canister Body (Civic Emerald Green)
+    const grad = this.ctx.createLinearGradient(bx, by, bx + bw, by);
+    grad.addColorStop(0, "#065f46");
+    grad.addColorStop(0.5, "#059669");
+    grad.addColorStop(1, "#022c22");
+    this.ctx.fillStyle = grad;
+
+    this.ctx.beginPath();
+    this.ctx.moveTo(bx + 6, by + 18);
+    this.ctx.lineTo(bx + 12, by + bh);
+    this.ctx.quadraticCurveTo(bx + bw / 2, by + bh + 8, bx + bw - 12, by + bh);
+    this.ctx.lineTo(bx + bw - 6, by + 18);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    // Rib styling lines
+    this.ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+    this.ctx.lineWidth = 2;
+    for (let rx = bx + 22; rx < bx + bw - 14; rx += 14) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(rx, by + 24);
+      this.ctx.lineTo(rx, by + bh - 8);
+      this.ctx.stroke();
+    }
+
+    // Lid & Rim
+    this.ctx.fillStyle = "#022c22";
+    this.ctx.fillRect(bx - 2, by + 10, bw + 4, 10);
+    this.ctx.fillStyle = "#10b981";
+    this.ctx.beginPath();
+    this.ctx.ellipse(bx + bw / 2, by + 10, bw / 2 + 2, 5, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Lid handle
+    this.ctx.strokeStyle = "#ffffff";
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.arc(bx + bw / 2, by + 7, 7, Math.PI, 0);
+    this.ctx.stroke();
+
+    // Emblem & Typography
+    this.ctx.fillStyle = "#ffffff";
+    this.ctx.font = "18px sans-serif";
+    this.ctx.textAlign = "center";
+    this.ctx.fillText("♻️", bx + bw / 2, by + 52);
+    this.ctx.font = "bold 9px monospace";
+    this.ctx.fillText("MUNICIPAL DUSTBIN", bx + bw / 2, by + 68);
+    this.ctx.fillStyle = "#a7f3d0";
+    this.ctx.font = "bold 8px monospace";
+    this.ctx.fillText("SWACHH BHOPAL", bx + bw / 2, by + 80);
+
+    // Safe compliance banner header
+    this.ctx.fillStyle = this.dustbinModeUserActive ? "rgba(16, 185, 129, 0.95)" : "rgba(6, 78, 59, 0.9)";
+    this.ctx.fillRect(bx - 12, by - 36, bw + 24, 22);
+    this.ctx.fillStyle = "#ffffff";
+    this.ctx.font = "bold 9px monospace";
+    const statusText = this.dustbinModeUserActive ? "✓ DUSTBIN TARGET [ARMED]" : "🗑️ MUNICIPAL DUSTBIN";
+    this.ctx.fillText(statusText, bx + bw / 2, by - 21);
+
+    // Subtag: Zero Violation Guarantee
+    this.ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+    this.ctx.fillRect(bx - 12, by + bh + 14, bw + 24, 18);
+    this.ctx.fillStyle = "#34d399";
+    this.ctx.font = "bold 8px monospace";
+    this.ctx.fillText("LAW-SAFE: 0 FINE ZONE", bx + bw / 2, by + bh + 26);
+    this.ctx.textAlign = "left";
+    this.ctx.restore();
+  }
+
+  // Robust spatial and biomechanical feature extractor
   detectMultiPersonBlobs(w, h) {
     const aw = 160;
     const ah = 120;
@@ -295,75 +555,171 @@ class SwachhCVEngine {
     const detections = [];
 
     if (this.prevFrameLuma) {
-      // Divide horizontal space into 3 spatial sectors (Left, Center, Right) to detect multiple people
-      const sectors = [
-        { name: "left", x0: 0, x1: (aw * 0.38) | 0 },
-        { name: "center", x0: (aw * 0.32) | 0, x1: (aw * 0.68) | 0 },
-        { name: "right", x0: (aw * 0.62) | 0, x1: aw }
-      ];
+      // 1. Column-wise motion histogram to detect distinct person presences
+      const colMotion = new Float32Array(aw);
+      let totalGlobalMotion = 0;
 
-      sectors.forEach((sec, idx) => {
-        let sectorMotion = 0;
-        let downwardMotion = 0;
-        let mouthZoneMotion = 0;
-        let minX = sec.x1, maxX = sec.x0, minY = ah, maxY = 0;
+      for (let y = 8; y < ah - 8; y++) {
+        for (let x = 4; x < aw - 4; x++) {
+          const pIdx = y * aw + x;
+          const diff = Math.abs(currentLuma[pIdx] - this.prevFrameLuma[pIdx]);
+          if (diff > 18) {
+            colMotion[x] += diff;
+            totalGlobalMotion += diff;
+          }
+        }
+      }
 
-        for (let y = 10; y < ah - 10; y++) {
-          for (let x = sec.x0; x < sec.x1; x++) {
+      // 2. Identify candidate spatial clusters
+      const clusters = [];
+      let inCluster = false;
+      let clusterStart = 0;
+      let clusterSum = 0;
+
+      for (let x = 0; x < aw; x++) {
+        if (colMotion[x] > 80) {
+          if (!inCluster) {
+            inCluster = true;
+            clusterStart = x;
+            clusterSum = colMotion[x];
+          } else {
+            clusterSum += colMotion[x];
+          }
+        } else {
+          if (inCluster) {
+            if (x - clusterStart > 12 && clusterSum > 800) {
+              clusters.push({ x0: clusterStart, x1: x });
+            }
+            inCluster = false;
+          }
+        }
+      }
+      if (inCluster && aw - clusterStart > 12 && clusterSum > 800) {
+        clusters.push({ x0: clusterStart, x1: aw });
+      }
+
+      // If no discrete cluster or camera is stationary with single user in view, create primary center cluster
+      if (clusters.length === 0) {
+        clusters.push({ x0: (aw * 0.25) | 0, x1: (aw * 0.75) | 0 });
+      }
+
+      // 3. For each cluster, compute precise anatomical zones and motion vectors
+      clusters.forEach(cl => {
+        let minX = cl.x1, maxX = cl.x0, minY = ah, maxY = 0;
+        let clusterMotion = 0;
+
+        for (let y = 8; y < ah - 8; y++) {
+          for (let x = cl.x0; x < cl.x1; x++) {
             const pIdx = y * aw + x;
             const diff = Math.abs(currentLuma[pIdx] - this.prevFrameLuma[pIdx]);
-            if (diff > 16) {
-              sectorMotion += diff;
+            if (diff > 18) {
+              clusterMotion += diff;
               if (x < minX) minX = x;
               if (x > maxX) maxX = x;
               if (y < minY) minY = y;
               if (y > maxY) maxY = y;
+            }
+          }
+        }
 
-              if (y > 12) {
-                const diffUp = Math.abs(currentLuma[pIdx] - this.prevFrameLuma[(y - 2) * aw + x]);
-                if (diff > diffUp) downwardMotion += diff;
-              }
+        // Expand bounds slightly to cover whole body
+        minX = Math.max(0, minX - 8);
+        maxX = Math.min(aw, maxX + 8);
+        minY = Math.max(0, minY - 10);
+        maxY = Math.min(ah, maxY + 14);
 
-              // Mouth region (between 25% and 60% of height)
-              if (y > ah * 0.25 && y < ah * 0.6) {
+        const clusterW = Math.max(30, maxX - minX);
+        const clusterH = Math.max(45, maxY - minY);
+
+        // Anatomical Sub-zones:
+        // Head: top 28% of person
+        // Mouth Zone: 16% to 32% of height, centered
+        // Torso: 32% to 65% of height
+        // Hand-to-Mouth zone: lateral areas near mouth height
+        let mouthZoneMotion = 0;
+        let torsoMotion = 0;
+        let handZoneMotion = 0;
+        let downwardImpulse = 0;
+
+        const mouthY0 = (minY + clusterH * 0.16) | 0;
+        const mouthY1 = (minY + clusterH * 0.34) | 0;
+        const mouthX0 = (minX + clusterW * 0.30) | 0;
+        const mouthX1 = (minX + clusterW * 0.70) | 0;
+
+        const torsoY0 = (minY + clusterH * 0.35) | 0;
+        const torsoY1 = (minY + clusterH * 0.70) | 0;
+
+        for (let y = minY; y < maxY; y++) {
+          for (let x = minX; x < maxX; x++) {
+            const pIdx = y * aw + x;
+            const diff = Math.abs(currentLuma[pIdx] - this.prevFrameLuma[pIdx]);
+            if (diff > 18) {
+              // Mouth zone
+              if (y >= mouthY0 && y <= mouthY1 && x >= mouthX0 && x <= mouthX1) {
                 mouthZoneMotion += diff;
+                // Check downward trajectory delta right below mouth
+                if (y > 4) {
+                  const diffBelow = Math.abs(currentLuma[pIdx] - this.prevFrameLuma[(y - 3) * aw + x]);
+                  if (diff > diffBelow) downwardImpulse += diff;
+                }
+              }
+              // Torso / Global body
+              else if (y >= torsoY0 && y <= torsoY1) {
+                torsoMotion += diff;
+              }
+              // Hand zones adjacent to mouth (Drinking / Face touch indicator)
+              else if (y >= mouthY0 && y <= torsoY0 && (x < mouthX0 || x > mouthX1)) {
+                handZoneMotion += diff;
               }
             }
           }
         }
 
-        const area = (sec.x1 - sec.x0) * ah;
-        const motionDensity = sectorMotion / area;
+        const mouthArea = Math.max(1, (mouthX1 - mouthX0) * (mouthY1 - mouthY0));
+        const torsoArea = Math.max(1, clusterW * (torsoY1 - torsoY0));
+        const handArea = Math.max(1, clusterW * (torsoY0 - mouthY0) * 0.6);
 
-        // If significant motion/person presence detected in this sector
-        if (motionDensity > 2.5 && maxX > minX && maxY > minY) {
-          // Map to full video coordinates
-          const scaleX = w / aw;
-          const scaleY = h / ah;
-          const blobW = Math.max(120, Math.round((maxX - minX + 16) * scaleX));
-          const blobH = Math.max(180, Math.round((maxY - minY + 24) * scaleY));
-          const blobX = Math.max(10, Math.min(w - blobW - 10, Math.round(minX * scaleX)));
-          const blobY = Math.max(10, Math.min(h - blobH - 10, Math.round(minY * scaleY)));
+        const mouthDensity = (mouthZoneMotion / mouthArea) * 10;
+        const torsoDensity = (torsoMotion / torsoArea) * 10;
+        const handDensity = (handZoneMotion / handArea) * 10;
+        const downwardDensity = (downwardImpulse / mouthArea) * 10;
 
-          detections.push({
-            x: blobX,
-            y: blobY,
-            width: blobW,
-            height: blobH,
-            cx: blobX + blobW / 2,
-            cy: blobY + blobH / 2,
-            motionDensity,
-            downwardMotion: (downwardMotion / area) * 10,
-            mouthZoneMotion: (mouthZoneMotion / (area * 0.35)) * 10
-          });
-        }
+        // Differential localized burst: mouth burst MINUS global torso movement
+        // If entire person moves/shakes, torsoDensity will be high, canceling mouth burst
+        const localizedMouthBurst = Math.max(0, mouthDensity - torsoDensity * 0.65);
+
+        // Hand-to-face overlap (Drinking filter)
+        const handOcclusionScore = Math.min(100, (handDensity * 1.4) + (torsoDensity * 0.3));
+
+        // Map coordinates to full video dimensions
+        const scaleX = w / aw;
+        const scaleY = h / ah;
+        const blobW = Math.max(140, Math.round(clusterW * scaleX));
+        const blobH = Math.max(200, Math.round(clusterH * scaleY));
+        const blobX = Math.max(10, Math.min(w - blobW - 10, Math.round(minX * scaleX)));
+        const blobY = Math.max(10, Math.min(h - blobH - 10, Math.round(minY * scaleY)));
+
+        detections.push({
+          x: blobX,
+          y: blobY,
+          width: blobW,
+          height: blobH,
+          cx: blobX + blobW / 2,
+          cy: blobY + blobH / 2,
+          mouthDensity,
+          torsoDensity,
+          localizedMouthBurst,
+          downwardDensity,
+          handOcclusionScore,
+          globalMotion: totalGlobalMotion / totalPixels
+        });
       });
     }
 
-    // If no distinct multiple sector motion, ensure at least one primary central user track exists
+    // Fallback if no motion: default centered person bounding box
     if (detections.length === 0) {
-      const bw = Math.round(w * 0.38);
-      const bh = Math.round(h * 0.75);
+      const bw = Math.round(w * 0.40);
+      const bh = Math.round(h * 0.78);
       const bx = Math.round((w - bw) / 2);
       const by = Math.round((h - bh) / 2);
       detections.push({
@@ -373,9 +729,12 @@ class SwachhCVEngine {
         height: bh,
         cx: bx + bw / 2,
         cy: by + bh / 2,
-        motionDensity: 1.0,
-        downwardMotion: 0,
-        mouthZoneMotion: 0
+        mouthDensity: 0,
+        torsoDensity: 0,
+        localizedMouthBurst: 0,
+        downwardDensity: 0,
+        handOcclusionScore: 0,
+        globalMotion: 0
       });
     }
 
@@ -383,12 +742,12 @@ class SwachhCVEngine {
     return detections;
   }
 
-  // ByteTrack centroid association: match detections to persistent tracks
+  // Multi-person tracking with sequential biomechanical verification & dustbin suppression
   updateMultiPersonTracks(detections, w, h) {
     const updatedTracks = [];
     const usedDetections = new Set();
+    const profile = this.sensitivityProfiles[this.sensitivity] || this.sensitivityProfiles.medium;
 
-    // Match existing tracks to nearest detection
     this.tracks.forEach(track => {
       let bestDist = Infinity;
       let bestIdx = -1;
@@ -396,7 +755,7 @@ class SwachhCVEngine {
       detections.forEach((det, dIdx) => {
         if (usedDetections.has(dIdx)) return;
         const dist = Math.hypot(track.cx - det.cx, track.cy - det.cy);
-        if (dist < bestDist && dist < this.maxTrackingDistance * 2.5) {
+        if (dist < bestDist && dist < this.maxTrackingDistance * 3) {
           bestDist = dist;
           bestIdx = dIdx;
         }
@@ -406,49 +765,103 @@ class SwachhCVEngine {
         const det = detections[bestIdx];
         usedDetections.add(bestIdx);
 
-        // Smooth position updates (EMA)
+        // Smooth position tracking
         const oldX = track.x;
         const oldY = track.y;
-        track.x = Math.round(0.7 * track.x + 0.3 * det.x);
-        track.y = Math.round(0.7 * track.y + 0.3 * det.y);
-        track.width = Math.round(0.8 * track.width + 0.2 * det.width);
-        track.height = Math.round(0.8 * track.height + 0.2 * det.height);
+        track.x = Math.round(0.72 * track.x + 0.28 * det.x);
+        track.y = Math.round(0.72 * track.y + 0.28 * det.y);
+        track.width = Math.round(0.82 * track.width + 0.18 * det.width);
+        track.height = Math.round(0.82 * track.height + 0.18 * det.height);
         track.cx = track.x + track.width / 2;
         track.cy = track.y + track.height / 2;
 
-        // Velocity vector & movement calculation
-        track.vx = (track.x - oldX);
-        track.vy = (track.y - oldY);
+        track.vx = track.x - oldX;
+        track.vy = track.y - oldY;
         track.speed = Math.hypot(track.vx, track.vy);
 
-        // Motion trail
         track.trail.push({ x: track.cx, y: track.cy });
         if (track.trail.length > 15) track.trail.shift();
 
-        // Individual Spitting Action Energy calculation for THIS specific person
-        if (det.downwardMotion > 10 || (det.mouthZoneMotion > 14 && det.motionDensity > 4)) {
-          track.spitEnergy = Math.min(100, track.spitEnergy + 26);
-          track.state = "ANALYZING_SPIT_GESTURE";
-        } else if (track.speed > 3) {
-          track.spitEnergy = Math.max(0, track.spitEnergy - 3);
-          track.state = track.vx > 1 ? "MOVING_RIGHT" : (track.vx < -1 ? "MOVING_LEFT" : "MOVING");
+        // Biomechanical Verification State Machine
+        // -------------------------------------------------------------
+        track.telemetry = {
+          burst: det.localizedMouthBurst,
+          downward: det.downwardDensity,
+          handOcclusion: det.handOcclusionScore,
+          torsoMovement: det.torsoDensity
+        };
+
+        // Filter 1: Anti-Drinking & Hand-at-Face suppression
+        const isDrinkingOrFaceTouch = det.handOcclusionScore > 16;
+        if (isDrinkingOrFaceTouch) {
+          track.handAtMouthFrames = (track.handAtMouthFrames || 0) + 1;
         } else {
-          track.spitEnergy = Math.max(0, track.spitEnergy - 4);
-          if (track.spitEnergy < 15) {
-            track.state = "STATIONARY_SAFE";
-          }
+          track.handAtMouthFrames = Math.max(0, (track.handAtMouthFrames || 0) - 1);
         }
 
-        // Trigger violation if THIS specific person spits
+        // Filter 2: Camera shake / Whole body locomotion suppression
+        const isWholeBodyMotion = det.torsoDensity > 18 && det.localizedMouthBurst < 10;
+
+        if (track.handAtMouthFrames >= 2) {
+          // Hand is raised to mouth -> Drinking / Wiping Face / Eating
+          track.state = "🥤 FILTERED: DRINKING / HAND-AT-MOUTH";
+          track.spitEnergy = Math.max(0, track.spitEnergy - 8);
+          track.consecutiveBurstFrames = 0;
+          track.isCompliantDisposal = false;
+        } else if (isWholeBodyMotion || track.speed > 4.5) {
+          // Walking or camera shake
+          track.state = "🚶 NORMAL BODY MOVEMENT";
+          track.spitEnergy = Math.max(0, track.spitEnergy - 4);
+          track.consecutiveBurstFrames = 0;
+          track.isCompliantDisposal = false;
+        } else if (det.localizedMouthBurst >= profile.minBurst && det.downwardDensity >= 6) {
+          // Valid biomechanical mouth burst vector detected!
+          track.consecutiveBurstFrames = (track.consecutiveBurstFrames || 0) + 1;
+
+          if (track.consecutiveBurstFrames >= profile.minConsecutive) {
+            track.spitEnergy = Math.min(100, track.spitEnergy + 20);
+            track.state = "⚡ VERIFYING EXPULSION TRAJECTORY";
+          } else {
+            track.spitEnergy = Math.min(60, track.spitEnergy + 8);
+            track.state = "🔍 ANALYZING MOUTH ACTION";
+          }
+        } else {
+          // Normal idle activity / talking
+          track.consecutiveBurstFrames = Math.max(0, (track.consecutiveBurstFrames || 0) - 1);
+          track.spitEnergy = Math.max(0, track.spitEnergy - 5);
+          if (track.spitEnergy < 12) {
+            track.state = "✓ IDLE / COMPLIANT";
+          } else {
+            track.state = "MONITORING";
+          }
+          track.isCompliantDisposal = false;
+        }
+
+        // -------------------------------------------------------------
+        // Check for Municipal Dustbin Intersect / Safe Disposal
+        // -------------------------------------------------------------
+        const isOrientedTowardDustbin = this.dustbinActive && (
+          this.dustbinModeUserActive ||
+          this.checkDustbinProximity(track)
+        );
+
         if (track.spitEnergy >= this.spitDetectionThreshold && this.cooldownFrames === 0) {
-          track.state = "🚨 SPITTING_DETECTED";
-          this.triggerRealSpitCapture(track.x, track.y, track.width, track.height, track.id);
+          if (isOrientedTowardDustbin) {
+            // LAWFUL CIVIC DISPOSAL (Spitting in Dustbin) - NEVER FINED!
+            track.state = "🗑️ DISPOSED IN DUSTBIN (COMPLIANT)";
+            track.isCompliantDisposal = true;
+            this.triggerRealDustbinSpitCapture(track.x, track.y, track.width, track.height, track.id);
+          } else {
+            // Confirmed Public Spitting Violation
+            track.state = "🚨 SPITTING DETECTED (VIOLATION)";
+            track.isCompliantDisposal = false;
+            this.triggerRealSpitCapture(track.x, track.y, track.width, track.height, track.id);
+          }
         }
 
         track.misses = 0;
         updatedTracks.push(track);
       } else {
-        // Person missed in this frame
         track.misses++;
         if (track.misses < 30) {
           updatedTracks.push(track);
@@ -472,9 +885,13 @@ class SwachhCVEngine {
           vy: 0,
           speed: 0,
           spitEnergy: 0,
-          state: "TRACKED",
+          consecutiveBurstFrames: 0,
+          handAtMouthFrames: 0,
+          state: "✓ TRACKED",
           misses: 0,
-          trail: [{ x: det.cx, y: det.cy }]
+          isCompliantDisposal: false,
+          trail: [{ x: det.cx, y: det.cy }],
+          telemetry: { burst: 0, downward: 0, handOcclusion: 0, torsoMovement: 0 }
         });
       }
     });
@@ -482,16 +899,45 @@ class SwachhCVEngine {
     this.tracks = updatedTracks;
   }
 
-  // Draw individual tracking boxes and motion vectors for every person
+  // Check if a person's mouth vector or spatial location is directed towards the dustbin
+  checkDustbinProximity(track) {
+    const bin = this.getDustbinPosition();
+    if (!bin) return false;
+    const binCenterX = bin.x + bin.width / 2;
+    const binCenterY = bin.y + bin.height / 2;
+
+    const headX = track.x + track.width / 2;
+    const mouthY = track.y + track.height * 0.28;
+
+    // Direct distance or rightward/downward facing toward receptacle
+    const distToBin = Math.hypot(headX - binCenterX, mouthY - binCenterY);
+    if (distToBin < 200) return true;
+
+    // Check if mouth trajectory vector or spatial area intersects dustbin zone
+    if (
+      headX >= bin.x - 60 && headX <= bin.x + bin.width + 60 &&
+      mouthY >= bin.y - 60 && mouthY <= bin.y + bin.height + 60
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  // Draw individual tracking boxes, biometric keypoints, and trajectory diagnostics
   renderMultiPersonTracks(w, h) {
     this.tracks.forEach(track => {
-      const isSpitting = track.state.includes("SPITTING_DETECTED");
+      const isSpitting = track.state.includes("SPITTING DETECTED");
+      const isDustbinCompliant = track.state.includes("DISPOSED IN DUSTBIN") || track.isCompliantDisposal;
+      const isDrinking = track.state.includes("DRINKING");
       const isAnalyzing = track.spitEnergy > 30;
-      const isMoving = track.speed > 2.5;
 
-      const boxColor = isSpitting ? "#ef4444" : (isAnalyzing ? "#f59e0b" : (isMoving ? "#06b6d4" : "#10b981"));
+      let boxColor = "#10b981"; // Safe Green
+      if (isSpitting) boxColor = "#ef4444"; // Red Violation
+      else if (isDustbinCompliant) boxColor = "#059669"; // Emerald Compliant
+      else if (isDrinking) boxColor = "#f59e0b"; // Amber Filtered
+      else if (isAnalyzing) boxColor = "#06b6d4"; // Cyan Analyzing
 
-      // 1. Draw Centroid Movement Trail (Shows path travelled by person)
+      // 1. Motion Trail
       if (track.trail.length > 1) {
         this.ctx.strokeStyle = boxColor;
         this.ctx.lineWidth = 2;
@@ -505,79 +951,128 @@ class SwachhCVEngine {
 
       // 2. Bounding Box
       this.ctx.strokeStyle = boxColor;
-      this.ctx.lineWidth = isSpitting ? 3.5 : 2;
+      this.ctx.lineWidth = (isSpitting || isDustbinCompliant) ? 3.5 : 2;
       this.ctx.strokeRect(track.x, track.y, track.width, track.height);
       this.drawCornerAccents(track.x, track.y, track.width, track.height, boxColor);
 
-      // 3. Header Tag: Track ID + Movement Velocity + State
+      // 3. Header Tag: Track ID + Biometric State
       this.ctx.fillStyle = boxColor;
-      this.ctx.fillRect(track.x, track.y - 24, track.width, 24);
+      this.ctx.fillRect(track.x, track.y - 26, track.width, 26);
       this.ctx.fillStyle = "#ffffff";
       this.ctx.font = "bold 10px monospace";
+      this.ctx.fillText(`${track.id} | ${track.state}`, track.x + 6, track.y - 9);
 
-      const velocityStr = isMoving ? `| v: ${track.speed.toFixed(1)}m/s` : `| IDLE`;
-      const spitStr = isSpitting ? `🚨 SPITTING (${Math.round(track.spitEnergy)}%)` : track.state;
-      this.ctx.fillText(`${track.id} ${velocityStr} | ${spitStr}`, track.x + 5, track.y - 8);
-
-      // 4. Individual Keypoints (Head, Mouth, Hands)
+      // 4. Biometrical Keypoints: Head, Mouth, Torso, Hands
       const headX = track.x + track.width / 2;
-      const headY = track.y + track.height * 0.25;
+      const headY = track.y + track.height * 0.22;
       const mouthY = headY + 22;
+      const torsoY = track.y + track.height * 0.52;
+      const handLX = headX - track.width * 0.32;
+      const handRX = headX + track.width * 0.32;
+      const handY = isDrinking ? mouthY + 5 : track.y + track.height * 0.60;
+
+      // Skeleton links
+      this.ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+      this.ctx.lineWidth = 1.5;
+      this.ctx.beginPath();
+      this.ctx.moveTo(headX, headY);
+      this.ctx.lineTo(headX, mouthY);
+      this.ctx.lineTo(headX, torsoY);
+      this.ctx.moveTo(headX, torsoY);
+      this.ctx.lineTo(handLX, handY);
+      this.ctx.moveTo(headX, torsoY);
+      this.ctx.lineTo(handRX, handY);
+      this.ctx.stroke();
 
       this.drawKeypoint(headX, headY, "#38bdf8", "Head");
-      this.drawKeypoint(headX, mouthY, isSpitting ? "#ef4444" : "#f43f5e", "Mouth");
-      this.drawKeypoint(headX - track.width * 0.3, track.y + track.height * 0.55, "#34d399", "Hand L");
-      this.drawKeypoint(headX + track.width * 0.3, track.y + track.height * 0.55, "#34d399", "Hand R");
+      this.drawKeypoint(headX, mouthY, isSpitting ? "#ef4444" : (isDustbinCompliant ? "#10b981" : "#f43f5e"), "Mouth");
+      this.drawKeypoint(handLX, handY, isDrinking ? "#f59e0b" : "#34d399", "Hand L");
+      this.drawKeypoint(handRX, handY, isDrinking ? "#f59e0b" : "#34d399", "Hand R");
 
-      // 5. Spitting trajectory particles if this specific person triggered
+      // 5. Trajectory Visualization
       if (isSpitting) {
+        // Red trajectory falling onto road
         this.ctx.fillStyle = "#ef4444";
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 9; i++) {
           this.ctx.beginPath();
-          this.ctx.arc(headX + (i - 4) * 4, mouthY + 10 + i * 8, 3, 0, Math.PI * 2);
+          this.ctx.arc(headX + (i - 4) * 3, mouthY + 12 + i * 9, 3.5, 0, Math.PI * 2);
           this.ctx.fill();
         }
+      } else if (isDustbinCompliant) {
+        // Green arc curving directly into the dustbin!
+        const bin = this.webcamDustbin;
+        const binTargetX = bin.x + bin.width / 2;
+        const binTargetY = bin.y + 15;
+
+        this.ctx.fillStyle = "#34d399";
+        for (let i = 0; i < 10; i++) {
+          const t = i / 10;
+          const arcX = headX + (binTargetX - headX) * t;
+          const arcY = mouthY + (binTargetY - mouthY) * t - Math.sin(t * Math.PI) * 20;
+          this.ctx.beginPath();
+          this.ctx.arc(arcX, arcY, 3.5, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+
+        // Compliance banner on person
+        this.ctx.fillStyle = "rgba(6, 78, 59, 0.95)";
+        this.ctx.fillRect(track.x - 10, track.y + track.height + 6, track.width + 20, 22);
+        this.ctx.strokeStyle = "#34d399";
+        this.ctx.strokeRect(track.x - 10, track.y + track.height + 6, track.width + 20, 22);
+        this.ctx.fillStyle = "#34d399";
+        this.ctx.font = "bold 9px monospace";
+        this.ctx.fillText(`✓ DUSTBIN RECEPTACLE: ZERO FINE`, track.x - 4, track.y + track.height + 21);
       }
     });
   }
 
   // Active Multi-Person Tracker HUD banner
   renderTrackingHUD(w, h) {
-    this.ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
-    this.ctx.fillRect(10, 10, 360, 68);
+    this.ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+    this.ctx.fillRect(10, 10, 390, 72);
     this.ctx.strokeStyle = "#334155";
-    this.ctx.strokeRect(10, 10, 360, 68);
+    this.ctx.strokeRect(10, 10, 390, 72);
 
     this.ctx.fillStyle = "#38bdf8";
     this.ctx.font = "bold 11px monospace";
-    this.ctx.fillText(`MULTI-PERSON TRACKER: ${this.tracks.length} PERSON(S) MONITORED`, 18, 28);
+    this.ctx.fillText(`BIOMECHANICAL VERIFIER: ${this.tracks.length} PERSON(S) MONITORED`, 18, 28);
 
-    // List individual tracks
-    this.ctx.font = "10px monospace";
-    this.tracks.slice(0, 3).forEach((track, i) => {
-      const isSpit = track.state.includes("SPITTING");
-      this.ctx.fillStyle = isSpit ? "#f87171" : "#e2e8f0";
+    const primaryTrack = this.tracks[0];
+    if (primaryTrack && primaryTrack.telemetry) {
+      const tel = primaryTrack.telemetry;
+      this.ctx.font = "10px monospace";
+      this.ctx.fillStyle = primaryTrack.handAtMouthFrames > 1 ? "#f59e0b" : "#94a3b8";
       this.ctx.fillText(
-        `• ${track.id}: ${track.state} (v:${track.speed.toFixed(1)}m/s | spit:${Math.round(track.spitEnergy)}%)`,
+        `• Mouth Burst: ${tel.burst.toFixed(1)} | Hand-At-Face: ${tel.handOcclusion.toFixed(1)}`,
         18,
-        44 + i * 14
+        45
       );
-    });
+
+      this.ctx.fillStyle = primaryTrack.state.includes("SPITTING") ? "#f87171" : "#34d399";
+      this.ctx.fillText(
+        `• Status: ${primaryTrack.state} | Conf: ${Math.round(primaryTrack.spitEnergy)}%`,
+        18,
+        60
+      );
+    } else {
+      this.ctx.font = "10px monospace";
+      this.ctx.fillStyle = "#94a3b8";
+      this.ctx.fillText(`• Align face in camera. Drinking water & hand gestures filtered.`, 18, 50);
+    }
   }
 
-  // Trigger Spitting Action Capture for a specific person
+  // Trigger Verified Public Spitting Violation
   triggerRealSpitCapture(bx = 200, by = 50, bw = 240, bh = 280, offenderTrackId = "P-001") {
     this.cooldownFrames = 90;
     this.playAlertTone();
 
-    // 1. Capture exact snapshot frame from video
     const snapCanvas = document.createElement("canvas");
     snapCanvas.width = this.videoElement.videoWidth || 640;
     snapCanvas.height = this.videoElement.videoHeight || 360;
     const sCtx = snapCanvas.getContext("2d");
     sCtx.drawImage(this.videoElement, 0, 0);
 
-    // Draw AI bounding box on snapshot focused on the specific offender
+    // Draw AI bounding box on snapshot focused on the offender
     sCtx.strokeStyle = "#ef4444";
     sCtx.lineWidth = 3;
     sCtx.strokeRect(bx, by, bw, bh);
@@ -589,26 +1084,26 @@ class SwachhCVEngine {
 
     const snapshotUrl = snapCanvas.toDataURL("image/jpeg", 0.9);
 
-    // 2. Generate video blob from recent chunks if available
     let videoUrl = null;
     if (this.recordedChunks.length > 0) {
       try {
         const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
         videoUrl = URL.createObjectURL(blob);
         this.lastRecordedBlobUrl = videoUrl;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const confidence = 89;
 
-    // 3. Dispatch to store with specific Track ID
     if (window.store) {
+      const targetId = window.selectedOffenderSubject || (window.store.activeCitizen ? window.store.activeCitizen.id : null);
       const inc = window.store.triggerSpittingDetection(
         "LIVE-CAM-01",
         confidence,
         { x: (bx / 640) * 100, y: (by / 360) * 100, width: (bw / 640) * 100, height: (bh / 360) * 100 },
         snapshotUrl,
-        videoUrl
+        videoUrl,
+        targetId
       );
 
       if (inc) {
@@ -616,7 +1111,7 @@ class SwachhCVEngine {
       }
 
       if (window.showToast) {
-        window.showToast(`🚨 SPITTING ACTION DETECTED FOR TRACK ${offenderTrackId}! Real clip buffered for Officer verification.`);
+        window.showToast(`🚨 SPITTING DETECTED (TRACK ${offenderTrackId})! Biomechanically verified & buffered for review.`);
       }
 
       setTimeout(() => {
@@ -627,12 +1122,31 @@ class SwachhCVEngine {
     }
   }
 
+  // Trigger Lawful Civic Disposal (Spit in Dustbin) - GUARANTEED ZERO FINE
+  triggerRealDustbinSpitCapture(bx = 200, by = 50, bw = 240, bh = 280, offenderTrackId = "P-001") {
+    this.cooldownFrames = 75;
+    this.playChimeTone(); // Pleasant civic notification chime
+
+    if (window.showToast) {
+      window.showToast("🗑️ Lawful Disposal Verified: Citizen spat into Municipal Dustbin. No violation/challan issued.");
+    }
+  }
+
   forceWebcamCapture() {
     if (this.mode === "webcam" && this.videoElement) {
       const targetTrack = this.tracks[0] || { x: 200, y: 50, width: 240, height: 280, id: "P-001" };
       this.triggerRealSpitCapture(targetTrack.x, targetTrack.y, targetTrack.width, targetTrack.height, targetTrack.id);
     } else {
       this.simulateSpitting();
+    }
+  }
+
+  forceDustbinCapture() {
+    if (this.mode === "webcam") {
+      const targetTrack = this.tracks[0] || { x: 200, y: 50, width: 240, height: 280, id: "P-001" };
+      this.triggerRealDustbinSpitCapture(targetTrack.x, targetTrack.y, targetTrack.width, targetTrack.height, targetTrack.id);
+    } else {
+      this.simulateSpitInDustbin();
     }
   }
 
@@ -940,7 +1454,8 @@ class SwachhCVEngine {
 
     setTimeout(() => {
       if (window.store) {
-        const inc = window.store.triggerSpittingDetection(this.activeCameraId, actor.confidence);
+        const targetId = window.selectedOffenderSubject || (window.store.activeCitizen ? window.store.activeCitizen.id : null);
+        const inc = window.store.triggerSpittingDetection(this.activeCameraId, actor.confidence, null, null, null, targetId);
         if (inc) inc.trackId = actor.id;
       }
     }, 400);
@@ -1029,6 +1544,239 @@ class SwachhCVEngine {
     this.ctx.lineTo(x + w, y + h);
     this.ctx.lineTo(x + w, y + h - len);
     this.ctx.stroke();
+  }
+
+  // --- Dynamic Dustbin Position & Dimensions (Width / Height) ---
+  getDustbinPosition() {
+    const bin = (this.mode === "webcam") ? this.webcamDustbin : (this.receptacles[0] || this.webcamDustbin);
+    return { x: bin.x, y: bin.y, width: bin.width || 70, height: bin.height || 95 };
+  }
+
+  setDustbinPosition(x, y) {
+    const safeX = Math.round(Math.max(10, Math.min(570, x)));
+    const safeY = Math.round(Math.max(10, Math.min(290, y)));
+    if (this.webcamDustbin) {
+      this.webcamDustbin.x = safeX;
+      this.webcamDustbin.y = safeY;
+    }
+    if (this.receptacles && this.receptacles[0]) {
+      this.receptacles[0].x = safeX;
+      this.receptacles[0].y = safeY;
+    }
+  }
+
+  getDustbinDimensions() {
+    const bin = (this.mode === "webcam") ? this.webcamDustbin : (this.receptacles[0] || this.webcamDustbin);
+    return { width: bin.width || 70, height: bin.height || 95 };
+  }
+
+  setDustbinDimensions(width, height) {
+    const safeW = Math.round(Math.max(30, Math.min(220, width)));
+    const safeH = Math.round(Math.max(40, Math.min(260, height)));
+    if (this.webcamDustbin) {
+      this.webcamDustbin.width = safeW;
+      this.webcamDustbin.height = safeH;
+    }
+    if (this.receptacles && this.receptacles[0]) {
+      this.receptacles[0].width = safeW;
+      this.receptacles[0].height = safeH;
+    }
+  }
+
+  getDustbinConfig() {
+    return {
+      x: this.webcamDustbin ? this.webcamDustbin.x : 480,
+      y: this.webcamDustbin ? this.webcamDustbin.y : 195,
+      width: this.webcamDustbin ? this.webcamDustbin.width : 70,
+      height: this.webcamDustbin ? this.webcamDustbin.height : 95
+    };
+  }
+
+  saveDustbinConfig() {
+    const cfg = this.getDustbinConfig();
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("swachh_dustbin_config", JSON.stringify(cfg));
+    }
+    if (window.store && window.store.saveDustbinConfig) {
+      window.store.saveDustbinConfig(cfg);
+    }
+    return cfg;
+  }
+
+  loadDustbinConfig() {
+    try {
+      if (typeof localStorage !== "undefined") {
+        const raw = localStorage.getItem("swachh_dustbin_config");
+        if (raw) {
+          const cfg = JSON.parse(raw);
+          if (cfg.x !== undefined && cfg.y !== undefined) {
+            this.setDustbinPosition(cfg.x, cfg.y);
+          }
+          if (cfg.width !== undefined && cfg.height !== undefined) {
+            this.setDustbinDimensions(cfg.width, cfg.height);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Could not load dustbin config from localStorage:", e);
+    }
+  }
+
+  resetDustbinPosition() {
+    this.setDustbinPosition(480, 195);
+    this.setDustbinDimensions(70, 95);
+    this.saveDustbinConfig();
+  }
+
+  // --- Interactive Camera Training Studio Recording ---
+  startTrainingRecording() {
+    this.isRecordingTraining = true;
+    this.trainingStartTime = Date.now();
+    this.trainingSessionFrames = [];
+    this.trainingDetectedGestures = [];
+    this.trainingKeyframes = [];
+  }
+
+  recordTrainingTelemetry(frameStats) {
+    if (!this.isRecordingTraining) return;
+    this.trainingSessionFrames.push(frameStats);
+
+    const elapsedSec = ((Date.now() - this.trainingStartTime) / 1000).toFixed(1);
+
+    // Track distinct actions performed during recording session
+    if (frameStats.spittingDetected && !this.trainingDetectedGestures.some(g => g.type === "spitting" && Math.abs(g.time - elapsedSec) < 2.0)) {
+      this.trainingDetectedGestures.push({
+        type: "spitting",
+        label: frameStats.isDustbin ? "Spitting into Municipal Dustbin" : "Spitting on Ground (Road)",
+        time: parseFloat(elapsedSec),
+        confidence: frameStats.confidence || 88,
+        isDustbin: Boolean(frameStats.isDustbin)
+      });
+    }
+
+    if (frameStats.drinkingDetected && !this.trainingDetectedGestures.some(g => g.type === "drinking" && Math.abs(g.time - elapsedSec) < 2.0)) {
+      this.trainingDetectedGestures.push({
+        type: "drinking",
+        label: "Drinking Water (Hand at Mouth)",
+        time: parseFloat(elapsedSec),
+        confidence: 91
+      });
+    }
+
+    if (frameStats.coughingDetected && !this.trainingDetectedGestures.some(g => g.type === "coughing" && Math.abs(g.time - elapsedSec) < 2.0)) {
+      this.trainingDetectedGestures.push({
+        type: "coughing",
+        label: "Coughing / Clearing Throat with Barrier",
+        time: parseFloat(elapsedSec),
+        confidence: 84
+      });
+    }
+
+    // Capture periodic keyframes
+    if (this.canvasElement && this.trainingKeyframes.length < 4 && (this.trainingSessionFrames.length % 25 === 0)) {
+      try {
+        const thumbCanvas = document.createElement("canvas");
+        thumbCanvas.width = 120;
+        thumbCanvas.height = 70;
+        const tCtx = thumbCanvas.getContext("2d");
+        tCtx.drawImage(this.canvasElement, 0, 0, 120, 70);
+        this.trainingKeyframes.push({
+          time: elapsedSec,
+          dataUrl: thumbCanvas.toDataURL("image/jpeg", 0.6)
+        });
+      } catch (e) { }
+    }
+  }
+
+  stopTrainingRecording() {
+    this.isRecordingTraining = false;
+    const durationSec = Math.max(1, ((Date.now() - (this.trainingStartTime || Date.now())) / 1000).toFixed(1));
+    const totalFrames = this.trainingSessionFrames.length;
+
+    // Analyze recorded session
+    const hasSpit = this.trainingDetectedGestures.some(g => g.type === "spitting");
+    const hasDustbin = this.trainingDetectedGestures.some(g => g.isDustbin);
+    const hasDrinking = this.trainingDetectedGestures.some(g => g.type === "drinking");
+    const hasCoughing = this.trainingDetectedGestures.some(g => g.type === "coughing");
+
+    let candidateCategory = "normal_walking";
+    let isLikelyViolation = false;
+    let autoSpitDetected = false;
+
+    if (hasDustbin) {
+      candidateCategory = "compliant_dustbin";
+      autoSpitDetected = true;
+      isLikelyViolation = false;
+    } else if (hasSpit) {
+      candidateCategory = "spitting_violation";
+      autoSpitDetected = true;
+      isLikelyViolation = true;
+    } else if (hasDrinking) {
+      candidateCategory = "drinking_water";
+      autoSpitDetected = false;
+      isLikelyViolation = false;
+    } else if (hasCoughing) {
+      candidateCategory = "coughing_sneezing";
+      autoSpitDetected = false;
+      isLikelyViolation = false;
+    }
+
+    let snapshotUrl = null;
+    if (this.canvasElement) {
+      try {
+        snapshotUrl = this.canvasElement.toDataURL("image/jpeg", 0.85);
+      } catch (e) { }
+    }
+
+    return {
+      durationSeconds: parseFloat(durationSec),
+      totalFrames,
+      detectedGestures: [...this.trainingDetectedGestures],
+      keyframes: [...this.trainingKeyframes],
+      snapshotUrl,
+      candidateCategory,
+      autoSpitDetected,
+      isLikelyViolation,
+      averageConfidence: hasSpit ? 89 : (hasDrinking || hasCoughing ? 74 : 15)
+    };
+  }
+
+  // Evaluate real-time features against trained demonstrations & active learned rules
+  queryLearnedActivityPattern(features) {
+    const store = window.store;
+    if (!store || !store.trainingSamples || store.trainingSamples.length === 0) {
+      return null;
+    }
+
+    // Nearest-neighbor evaluation across stored training samples
+    let bestMatch = null;
+    let minDistance = Infinity;
+
+    store.trainingSamples.forEach(sample => {
+      const f = sample.features || {};
+      const dMouth = Math.abs((features.mouthImpulse || 0) - (f.mouthImpulse || 0));
+      const dHand = Math.abs((features.handDistance || 100) - (f.handDistance || 100)) / 100;
+      const dDustbin = Math.abs((features.dustbinDistance || 200) - (f.dustbinDistance || 200)) / 200;
+      
+      const totalDist = dMouth * 1.5 + dHand * 1.2 + dDustbin * 1.0;
+      if (totalDist < minDistance) {
+        minDistance = totalDist;
+        bestMatch = sample;
+      }
+    });
+
+    if (bestMatch && minDistance < 1.1) {
+      return {
+        matchedSample: bestMatch,
+        similarityScore: Math.round(Math.max(60, 100 - minDistance * 35)),
+        isViolation: bestMatch.isViolation,
+        shouldFine: bestMatch.shouldFine,
+        activityCategory: bestMatch.activityCategory,
+        ruleApplied: `Learned Rule from Demonstration [${bestMatch.id}: ${bestMatch.label}]`
+      };
+    }
+
+    return null;
   }
 }
 

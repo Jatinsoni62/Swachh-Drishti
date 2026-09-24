@@ -150,8 +150,11 @@ window.renderHeadDashboardView = function (container) {
                             "${rev.reason}"
                           </div>
                           ${rev.attachmentName ? `
-                            <div style="font-size: 0.7rem; color: var(--teal-600); margin-top: 2px;">
-                              📎 ${rev.attachmentName}
+                            <div style="font-size: 0.72rem; color: var(--teal-700); margin-top: 3px; display: flex; align-items: center; gap: 6px;">
+                              <span>📎 ${rev.attachmentName}</span>
+                              <button class="btn-link" style="font-size: 0.72rem; color: var(--teal-800); font-weight: 800; text-decoration: underline; background: none; border: none; padding: 0; cursor: pointer;" onclick="window.openCitizenEvidenceModal('${rev.id}')">
+                                👁️ View Evidence
+                              </button>
                             </div>
                           ` : ''}
                         </td>

@@ -64,9 +64,31 @@ window.renderReviewsView = function (container) {
                   </div>
 
                   ${rev.attachmentName ? `
-                    <div style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--teal-700); background: var(--teal-50); border: 1px solid var(--teal-100); padding: 4px 10px; border-radius: var(--radius-sm);">
-                      <span>📎 Citizen Attached Evidence:</span>
-                      <strong>${rev.attachmentName}</strong>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                        <div style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--teal-700); background: var(--teal-50); border: 1px solid var(--teal-100); padding: 5px 10px; border-radius: var(--radius-sm); width: fit-content;">
+                          <span>📎 Citizen Attached Evidence:</span>
+                          <strong>${rev.attachmentName}</strong>
+                        </div>
+                        <button class="btn-secondary" style="font-size: 0.78rem; padding: 5px 12px; display: inline-flex; align-items: center; gap: 6px; color: var(--teal-800); border-color: var(--teal-400); background: #f0fdfa; font-weight: 700; cursor: pointer; border-radius: 4px;" onclick="window.openCitizenEvidenceModal('${rev.id}')">
+                          <span>👁️</span>
+                          <span>View Evidence</span>
+                        </button>
+                        ${rev.evidenceVerified ? `
+                          <span class="status-badge status-verified" style="font-size: 0.72rem; padding: 3px 8px;">
+                            ✓ Evidence Verified
+                          </span>
+                        ` : ''}
+                      </div>
+                      ${rev.attachmentUrl && rev.attachmentType && rev.attachmentType.startsWith('image/') ? `
+                        <div style="max-width: 260px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-main); margin-top: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                          <img src="${rev.attachmentUrl}" alt="Citizen Attached Proof" style="width: 100%; height: auto; display: block;" />
+                        </div>
+                      ` : (rev.attachmentUrl && rev.attachmentType && rev.attachmentType.startsWith('video/') ? `
+                        <div style="max-width: 320px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-main); margin-top: 4px;">
+                          <video src="${rev.attachmentUrl}" controls style="width: 100%; display: block;"></video>
+                        </div>
+                      ` : '')}
                     </div>
                   ` : ''}
                 </div>
@@ -173,8 +195,16 @@ window.openReviewAdjudicationModal = function (reviewId) {
 
               ${rev.attachmentName ? `
                 <div style="background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: var(--radius-sm); padding: 10px; font-size: 0.8rem; color: var(--slate-700); margin-bottom: 16px;">
-                  📎 <strong>Submitted Material:</strong> ${rev.attachmentName}
-                  <div style="font-size: 0.72rem; color: var(--teal-700); margin-top: 2px;">(Verified PDF Document)</div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                      📎 <strong>Submitted Material:</strong> ${rev.attachmentName}
+                      <div style="font-size: 0.72rem; color: var(--teal-700); margin-top: 2px;">(Official Evidence Docket)</div>
+                    </div>
+                    <button class="btn-secondary" style="font-size: 0.75rem; padding: 4px 10px; color: var(--teal-800); border-color: var(--teal-400); background: #f0fdfa; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" onclick="window.openCitizenEvidenceModal('${rev.id}')">
+                      <span>👁️</span>
+                      <span>View Evidence & Verify</span>
+                    </button>
+                  </div>
                 </div>
               ` : ''}
 
