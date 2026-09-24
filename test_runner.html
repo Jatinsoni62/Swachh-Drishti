@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SWACHH-DRISHTI Full Functionality & Integration Test Runner</title>
+  <style>
+    body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px; }
+    .pass { color: #34d399; font-weight: bold; }
+    .fail { color: #f87171; font-weight: bold; }
+    .suite { margin-top: 15px; font-size: 1.1rem; color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 4px; }
+    #viewport-test-area { display: none; }
+  </style>
+</head>
+<body>
+  <h1>SWACHH-DRISHTI Automated System & Functionality Test Runner</h1>
+  <div id="summary">Running tests...</div>
+  <div id="test-results"></div>
+  <div id="viewport-test-area"></div>
+  <div id="evidence-modal-root"></div>
+  <div id="toast-container" class="toast-container"></div>
+  <div id="gov-header-root"></div>
+  <div id="app-sidebar-root"></div>
+
+  <!-- Load all project scripts in order -->
+  <script src="js/data/mock-data.js"></script>
+  <script src="js/logo-data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/cv-engine.js"></script>
+  <script src="js/views/landing.js"></script>
+  <script src="js/views/login.js"></script>
+  <script src="js/views/officer-dashboard.js"></script>
+  <script src="js/views/head-dashboard.js"></script>
+  <script src="js/views/live-monitor.js"></script>
+  <script src="js/views/evidence-modal.js"></script>
+  <script src="js/views/citizen-dashboard.js"></script>
+  <script src="js/views/challan-view.js"></script>
+  <script src="js/views/review-workflow.js"></script>
+  <script src="js/views/hotspot-view.js"></script>
+  <script src="js/views/audit-log.js"></script>
+  <script src="js/views/incident-tracker.js"></script>
+  <script src="js/views/train-camera.js"></script>
+  <script src="js/app.js"></script>
+
+  <script>
+    (function() {
+      const resultsContainer = document.getElementById("test-results");
+      const summaryContainer = document.getElementById("summary");
+      const testArea = document.getElementById("viewport-test-area");
+
+      let passedCount = 0;
+      let failedCount = 0;
+      const failures = [];
+
+      function suite(name) {
+        const div = document.createElement("div");
+        div.className = "suite";
+        div.textContent = `=== Suite: ${name} ===`;
+        resultsContainer.appendChild(div);
+      }
+
+      function test(description, testFn) {
+        try {
+          testFn();
+          passedCount++;
+          const p = document.createElement("div");
+          p.className = "pass";
+          p.textContent = `  ✓ PASS: ${description}`;
+          resultsContainer.appendChild(p);
+        } catch (err) {
+          failedCount++;
+          failures.push({ description, error: err.message, stack: err.stack });
+          const p = document.createElement("div");
+          p.className = "fail";
+          p.textContent = `  ✗ FAIL: ${description} -> ${err.message}`;
+          resultsContainer.appendChild(p);
+        }
+      }
+
+      function assert(condition, message) {
+        if (!condition) {
+          throw new Error(message || "Assertion failed");
+        }
+      }
+
+      const store = window.store;
+      const cv = window.cvEngine;
+
+      // ==========================================
+      // SUITE 1: Central Store & State Controller
+      // ==========================================
+      suite("Central Store & State Controller");
+
+      test("Store initialized with data, cameras, and citizens", () => {
+        assert(store !== undefined, "Store must exist");
+        assert(Array.isArray(store.cameras) && store.cameras.length > 0, "Cameras array exists");
+        assert(Array.isArray(store.incidents) && store.incidents.length > 0, "Incidents array exists");
+        assert(Array.isArray(store.challans) && store.challans.length > 0, "Challans array exists");
+        assert(Array.isArray(store.registeredCitizens) && store.registeredCitizens.length > 0, "Registered citizens exist");
+      });
+
+      test("Theme toggling works and updates document attribute", () => {
+        store.setTheme("light");
+        assert(store.theme === "light", "Store theme updated to light");
+        assert(document.documentElement.getAttribute("data-theme") === "light", "DOM attribute updated");
+        store.setTheme("dark");
+        assert(store.theme === "dark", "Store theme updated to dark");
+        assert(document.documentElement.getAttribute("data-theme") === "dark", "DOM attribute updated to dark");
+      });
+
+      test("AI Alerts ON/OFF toggle works and persists", () => {
+        const initial = store.aiAlertsEnabled;
+        const toggled = store.toggleAiAlerts();
+        assert(toggled === !initial, "Alert state toggles correctly");
+        const forced = store.toggleAiAlerts(true);
+        assert(forced === true && store.aiAlertsEnabled === true, "Forced true works");
+        const forcedFalse = store.toggleAiAlerts(false);
+        assert(forcedFalse === false && store.aiAlertsEnabled === false, "Forced false works");
+        store.toggleAiAlerts(true); // reset to true
+      });
+
+      test("Role switching & user profile updates", () => {
+        store.setUserRole("MUNICIPAL_HEAD");
+        assert(store.currentUser.role === "MUNICIPAL_HEAD", "Role switched to Head");
+        store.switchToOfficerMode();
+        assert(store.isHeadViewingAsOfficer === true, "Head viewing as Officer");
+        store.returnToHeadDashboard();
+        assert(store.isHeadViewingAsOfficer === false, "Returned to Head view");
+        store.setUserRole("MUNICIPAL_OFFICER");
+        assert(store.currentUser.role === "MUNICIPAL_OFFICER", "Role switched back to Officer");
+      });
+
+      test("Citizen login and lookup", () => {
+        const citizen = store.loginCitizen("CIT-BPL-701");
+        assert(citizen !== null && citizen.name.includes("Shreyansh"), "Citizen login works");
+        assert(store.activeCitizen && store.activeCitizen.id === "CIT-BPL-701", "Active citizen set");
+      });
+
+      test("Face recognition matching in store", () => {
+        const match = store.matchFaceAgainstRegistry();
+        assert(match.matched === true, "Face match succeeds against registry");
+        assert(match.confidence >= 95, "Match confidence is calibrated high");
+      });
+
+      test("Incident creation via triggerSpittingDetection", () => {
+        const prevCount = store.incidents.length;
+        const inc = store.triggerSpittingDetection("BPL-ICC-042", 94);
+        assert(inc !== null, "Incident created");
+        assert(inc.status === "PENDING" || inc.status === "VERIFIED", "Incident has valid status");
+        assert(store.incidents.length === prevCount + 1, "Incidents array incremented");
+      });
+
+      test("Incident verification and rejection flow", () => {
+        const inc = store.triggerSpittingDetection("BPL-ICC-042", 92);
+        store.verifyIncident(inc.id, "Inspector R. K. Sharma", "Verified spitting offense");
+        assert(inc.status === "VERIFIED", "Incident marked VERIFIED");
+        
+        const inc2 = store.triggerSpittingDetection("BPL-ICC-042", 88);
+        store.rejectIncident(inc2.id, "Drinking/eating", "Filtered false positive");
+        assert(inc2.status === "REJECTED", "Incident marked REJECTED");
+      });
+
+      test("Challan issuance, dispute submission, and Municipal Head adjudication", () => {
+        const inc = store.incidents.find(i => i.status === "VERIFIED") || store.incidents[0];
+        const challan = store.issueChallan(inc.id, 250, "Shreyansh Soni", "CIT-BPL-701");
+        assert(challan !== null, "Challan issued");
+        assert(challan.fineAmount === 250, "Challan fine correct");
+
+        // Citizen submits dispute
+        const review = store.submitCitizenDispute(challan.id, "EVIDENCE_CONTESTED", "I was drinking water");
+        assert(review !== null, "Review created");
+        assert(challan.status === "UNDER_REVIEW", "Challan status moved to UNDER_REVIEW");
+
+        // Officer escalates to Head
+        store.escalateReviewToHead(review.id, "Forwarding to Municipal Head for final order");
+        assert(review.status === "PENDING_HEAD", "Review forwarded to Head");
+
+        // Head makes decision: CANCEL
+        store.decideReviewHead(review.id, "CANCEL", "Evidence shows citizen was drinking water. Fine waived.");
+        assert(review.status === "RESOLVED", "Review resolved");
+        assert(challan.status === "CANCELLED", "Challan cancelled and fine waived");
+      });
+
+      test("Active Learning model retraining and accuracy improvement", () => {
+        const prevAcc = store.learnedModel.accuracy;
+        const sample = {
+          activityType: "drinking_water",
+          isSpitting: false,
+          issueChallan: false,
+          correctlyDetected: true,
+          classification: "NON_VIOLATION",
+          notes: "Drinking water test demonstration"
+        };
+        const savedSample = store.saveTrainingDemonstration(sample);
+        assert(savedSample !== null && savedSample.id.startsWith("DEMO-"), "Demonstration saved");
+        
+        const updated = store.retrainNeuralModel();
+        assert(updated.accuracy >= 98.4, "Model accuracy is maintained at production level >= 98.4%");
+        assert(updated.epochsTrained > 0, "Epochs trained incremented");
+      });
+
+      test("Dustbin position and dimensions persistence", () => {
+        const initialCfg = store.getDustbinConfig();
+        assert(initialCfg.width > 0 && initialCfg.height > 0, "Dustbin dimensions exist");
+        store.setDustbinConfig({ x: 520, y: 220, width: 75, height: 95 });
+        const updatedCfg = store.getDustbinConfig();
+        assert(updatedCfg.x === 520 && updatedCfg.y === 220, "Dustbin coordinates updated");
+      });
+
+      // ==========================================
+      // SUITE 2: Computer Vision Engine
+      // ==========================================
+      suite("Computer Vision Engine (CVEngine)");
+
+      test("CVEngine initialization and element attachment", () => {
+        assert(cv !== undefined, "CVEngine instance exists");
+        const video = document.createElement("video");
+        const canvas = document.createElement("canvas");
+        canvas.width = 640;
+        canvas.height = 360;
+        cv.attachElements(video, canvas);
+        assert(cv.videoElement === video, "Video element attached");
+        assert(cv.canvasElement === canvas, "Canvas element attached");
+      });
+
+      test("CVEngine mode switching and sensitivity profiles", () => {
+        cv.setMode("simulation");
+        assert(cv.mode === "simulation", "Simulation mode set");
+        cv.setMode("webcam");
+        assert(cv.mode === "webcam", "Webcam mode set");
+        cv.setSensitivity("high");
+        assert(cv.sensitivity === "high", "High sensitivity set");
+        cv.setSensitivity("medium");
+        assert(cv.sensitivity === "medium", "Medium sensitivity set");
+      });
+
+      test("CVEngine dustbin positioning and zone boundaries", () => {
+        const binPos = cv.getDustbinPosition();
+        assert(binPos.x > 0 && binPos.y > 0, "Dustbin position valid");
+        cv.setDustbinPosition(530, 230);
+        const newPos = cv.getDustbinPosition();
+        assert(newPos.x === 530 && newPos.y === 230, "Dustbin position updated");
+      });
+
+      test("CVEngine simulation actions and triggers", () => {
+        cv.simulateSpitting();
+        assert(cv.simulationActors[0].behaviorType === "spitting", "Spitting simulation set");
+        cv.simulateDrinking();
+        assert(cv.simulationActors[1].behaviorType === "drinking", "Drinking simulation set");
+        cv.simulateNormalWalk();
+        assert(cv.simulationActors[0].behaviorType === "normal", "Normal walk simulation set");
+      });
+
+      test("CVEngine training recording controls", () => {
+        cv.startRecordingTraining();
+        assert(cv.isRecordingTraining === true, "Training recording started");
+        cv.stopRecordingTraining();
+        assert(cv.isRecordingTraining === false, "Training recording stopped");
+      });
+
+      // ==========================================
+      // SUITE 3: View Rendering Integration
+      // ==========================================
+      suite("View Rendering Pipeline");
+
+      const viewsToTest = [
+        { name: "Landing View", fn: () => window.renderLandingView(testArea) },
+        { name: "Login View", fn: () => window.renderLoginView(testArea) },
+        { name: "Officer Dashboard View", fn: () => window.renderOfficerDashboardView(testArea) },
+        { name: "Municipal Head Dashboard View", fn: () => window.renderHeadDashboardView(testArea) },
+        { name: "Live Cleanliness Monitoring View", fn: () => window.renderLiveMonitorView(testArea) },
+        { name: "Challan Management View", fn: () => window.renderChallansView(testArea) },
+        { name: "Citizen Notice Portal View", fn: () => window.renderCitizenChallanView(testArea, "SD-2026-001284") },
+        { name: "Review Workflow View", fn: () => window.renderReviewsView(testArea) },
+        { name: "Hotspot Map View", fn: () => window.renderHotspotsView(testArea) },
+        { name: "Statutory Audit View", fn: () => window.renderAuditView(testArea) },
+        { name: "Incident Tracker View", fn: () => window.renderIncidentTrackerView(testArea) },
+        { name: "Camera Training Studio View", fn: () => window.renderTrainCameraView(testArea) },
+        { name: "Citizen Dashboard View", fn: () => window.renderCitizenDashboardView(testArea) }
+      ];
+
+      viewsToTest.forEach(v => {
+        test(`Render ${v.name} without exceptions`, () => {
+          v.fn();
+          assert(testArea.innerHTML.length > 50, `${v.name} rendered content to DOM`);
+        });
+      });
+
+      test("Evidence Modal opens and renders cleanly", () => {
+        window.openEvidenceModal("INC-2026-0842");
+        const modal = document.getElementById("evidence-modal-root");
+        assert(modal !== null, "Evidence modal added to DOM");
+        modal.remove();
+      });
+
+      // ==========================================
+      // SUITE 4: UI Interactive Helpers & Toasts
+      // ==========================================
+      suite("UI Interactive Controls & Toasts");
+
+      test("Global toast system creates toast and caps active count", () => {
+        window.clearAllToasts();
+        window.showToast("Test 1");
+        window.showToast("Test 2");
+        window.showToast("Test 3");
+        const container = document.getElementById("toast-container");
+        assert(container !== null, "Toast container exists");
+        assert(container.children.length <= 2, "Toasts capped to maximum 2");
+        window.clearAllToasts();
+        assert(container.children.length === 0, "Toasts cleared");
+      });
+
+      test("AI Alert toggle helper function updates UI buttons", () => {
+        window.toggleGlobalAiAlerts();
+        const headerBtn = document.getElementById("btn-toggle-global-alerts");
+        // State toggled once
+        window.toggleGlobalAiAlerts();
+        // State restored
+        assert(store.aiAlertsEnabled === true, "Alerts restored to ON");
+      });
+
+      test("Camera feed power toggle handles on/off states", () => {
+        if (window.toggleLiveFeedPower) {
+          window.toggleLiveFeedPower();
+          window.toggleLiveFeedPower();
+        }
+        if (window.toggleTrainingFeedPower) {
+          window.toggleTrainingFeedPower();
+          window.toggleTrainingFeedPower();
+        }
+      });
+
+      // Final summary calculation
+      summaryContainer.innerHTML = `
+        <h2 style="color: ${failedCount === 0 ? '#34d399' : '#f87171'};">
+          ${failedCount === 0 ? 'ALL TESTS PASSED!' : `${failedCount} TESTS FAILED!`}
+        </h2>
+        <p>Total Passed: <strong class="pass">${passedCount}</strong> | Total Failed: <strong class="fail">${failedCount}</strong></p>
+      `;
+
+      window.__TEST_RESULTS__ = {
+        passed: passedCount,
+        failed: failedCount,
+        failures: failures
+      };
+    })();
+  </script>
+</body>
+</html>

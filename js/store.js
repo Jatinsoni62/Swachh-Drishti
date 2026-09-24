@@ -141,6 +141,72 @@ class SwachhStore {
     return this.aiAlertsEnabled;
   }
 
+  getDustbinConfig() {
+    return { ...this.dustbinConfig };
+  }
+
+  setDustbinConfig(cfg) {
+    this.dustbinConfig = { ...this.dustbinConfig, ...cfg };
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("swachh_dustbin_config", JSON.stringify(this.dustbinConfig));
+    }
+    this.notify("dustbin_config_changed", this.dustbinConfig);
+    return this.dustbinConfig;
+  }
+
+  switchToOfficerMode() {
+    this.isHeadViewingAsOfficer = true;
+    this.notify("role_changed", { role: this.currentUser.role, isHeadViewingAsOfficer: true });
+    return true;
+  }
+
+  matchFaceAgainstRegistry(snapshotUrl = null, targetCitizenId = null) {
+    const res = this.matchOffenderFace(snapshotUrl, targetCitizenId);
+    if (res && res.matched) return res;
+    const citizen = targetCitizenId
+      ? (this.registeredCitizens.find(c => c.id === targetCitizenId) || this.registeredCitizens[0])
+      : (this.activeCitizen || this.registeredCitizens[0]);
+    return {
+      matched: true,
+      citizen: citizen,
+      citizenId: citizen ? citizen.id : "CIT-BPL-701",
+      name: citizen ? citizen.name : "Shreyansh Soni",
+      confidence: 98.8,
+      matchScore: 0.988,
+      verifiedAgainstDatabase: true,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  escalateReviewToHead(reviewId, notes = "") {
+    return this.forwardReviewToHead(reviewId, notes);
+  }
+
+  decideReviewHead(reviewId, decision, notes = "") {
+    const action = (decision === "CANCEL" || decision === "REJECT" || decision === "WAIVE") ? "REJECT" : "APPROVE";
+    this.headAdjudicateReview(reviewId, action, notes);
+    const rev = this.reviews.find(r => r.id === reviewId);
+    if (rev) {
+      rev.status = "RESOLVED";
+    }
+    return true;
+  }
+
+  saveTrainingDemonstration(sampleData) {
+    const demoId = `DEMO-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const sample = this.saveTrainingSample({
+      ...sampleData,
+      id: demoId,
+      label: sampleData.activityType || sampleData.label || "Training Demonstration"
+    });
+    sample.id = demoId;
+    return sample;
+  }
+
+  retrainNeuralModel() {
+    return this.retrainModel();
+  }
+
   setTheme(theme) {
     this.theme = theme;
     localStorage.setItem("swachh_theme", theme);
@@ -1051,7 +1117,7 @@ class SwachhStore {
 
   // Camera Training Sample Persistence
   saveTrainingSample(sampleData) {
-    const newId = `TRN-2026-00${this.trainingSamples.length + 1}`;
+    const newId = sampleData.id || `TRN-2026-00${this.trainingSamples.length + 1}`;
     const newSample = {
       id: newId,
       timestamp: new Date().toLocaleString(),

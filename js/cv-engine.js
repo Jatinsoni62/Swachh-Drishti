@@ -1525,6 +1525,40 @@ class SwachhCVEngine {
     });
   }
 
+  startTrainingRecording() {
+    this.isRecordingTraining = true;
+    this.trainingStartTime = Date.now();
+    this.trainingSessionFrames = [];
+    this.trainingDetectedGestures = [];
+    return { success: true, startTime: this.trainingStartTime };
+  }
+
+  startRecordingTraining() {
+    return this.startTrainingRecording();
+  }
+
+  stopTrainingRecording() {
+    this.isRecordingTraining = false;
+    const duration = this.trainingStartTime ? Math.round((Date.now() - this.trainingStartTime) / 1000) : 0;
+    return {
+      success: true,
+      duration,
+      framesCount: this.trainingSessionFrames ? this.trainingSessionFrames.length : 0,
+      detectedActions: this.trainingDetectedGestures || []
+    };
+  }
+
+  stopRecordingTraining() {
+    return this.stopTrainingRecording();
+  }
+
+  recordTrainingTelemetry(data) {
+    if (this.isRecordingTraining) {
+      if (!this.trainingSessionFrames) this.trainingSessionFrames = [];
+      this.trainingSessionFrames.push({ timestamp: Date.now(), ...data });
+    }
+  }
+
   drawKeypoint(x, y, color, label) {
     this.ctx.fillStyle = color;
     this.ctx.beginPath();
